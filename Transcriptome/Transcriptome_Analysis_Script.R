@@ -15,7 +15,7 @@ options(scipen=999)
 options(stringsAsFactors = FALSE)
 
 ################### Package import ###################
-# Importing thet might be used (Note: Not all of them may be required)
+# Importing that might be used (Note: Not all of them may be required)
 library(fun)
 library(stringr)
 library(dplyr)
@@ -3494,9 +3494,56 @@ GSE64930_CHARACT_DF = characterize_dataset_generelized_two_subgroups(dataset = G
                                                                      simplif_P = 3)
 openxlsx::write.xlsx(GSE64930_CHARACT_DF[["Table"]], file = "GSE64930_demographics.xlsx", overwrite = TRUE)
 
+################### Inspection of the overlap between GSE64930 and GSE46743 ###################
+
+GEO_GSE64930 = getGEO("GSE64930")
+GEO_GSE64930 = GEO_GSE64930[[1]]
+GEO_GSE64930_pheno = GEO_GSE64930@phenoData@data
 
 
+GEO_GSE46743 = getGEO("GSE46743")
+GEO_GSE46743 = GEO_GSE46743[[1]]
+GEO_GSE46743_pheno = GEO_GSE46743@phenoData@data
+GEO_GSE46743_pheno$description.1 = stri_replace_all_fixed(GEO_GSE46743_pheno$title, "baseline ", "")
+GEO_GSE46743_pheno$description.1 = stri_replace_all_fixed(GEO_GSE46743_pheno$description.1, "stimulated ", "")
 
+# Intersecting participants
+Sample_inter = intersect(GEO_GSE46743_pheno$description, GEO_GSE64930_pheno$description.1)
+Sample_inter = unique(Sample_inter)
+Subj_inter = intersect(GEO_GSE46743_pheno$description.1, GEO_GSE64930_pheno$description)
+Subj_inter = unique(Subj_inter)
+
+GEO_GSE46743_inter = GEO_GSE46743_pheno[GEO_GSE46743_pheno$description.1 %in% Subj_inter,]
+GEO_GSE46743_inter = GEO_GSE46743_inter[GEO_GSE46743_inter$`stimulus:ch1` == "baseline",]
+GEO_GSE46743_inter$description.1 = stri_replace_all_fixed(GEO_GSE46743_inter$title, "baseline ", "")
+GEO_GSE46743_inter = arrange(GEO_GSE46743_inter, description.1)
+GEO_GSE46743_inter = GEO_GSE46743_inter[,c(
+  "title",
+  "geo_accession",
+  "characteristics_ch1",
+  "characteristics_ch1.1",
+  "characteristics_ch1.2",
+  "characteristics_ch1.3",
+  "characteristics_ch1.4",
+  "description",
+  "description.1"
+)]
+
+GEO_GSE64930_inter = GEO_GSE64930_pheno[GEO_GSE64930_pheno$description %in% Subj_inter,]
+GEO_GSE64930_inter = GEO_GSE64930_inter[GEO_GSE64930_inter$`stimulus:ch1` == "baseline",]
+GEO_GSE64930_inter = arrange(GEO_GSE64930_inter, description)
+GEO_GSE64930_inter = GEO_GSE64930_inter[,c(
+  "title",
+  "geo_accession",
+  "characteristics_ch1",
+  "characteristics_ch1.1",
+  "characteristics_ch1.2",
+  "characteristics_ch1.3",
+  "description",
+  "description.1"
+)]
+
+# Samples appear not overlapping...
 
 
 

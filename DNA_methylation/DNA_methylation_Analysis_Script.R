@@ -5,7 +5,7 @@
 # Note 4: The whole running environment gets heavy once the data is imported (It is not advised to run a script on a machine with less than 32 GB of RAM)
 # Note 5: Some of the raw files (primarily phenotype data (PSY and GSE125105) and DNA methylation data (PSY)) could not be deposited publicly (for ethical reasons)
 # -> Raw data files could be provided based on authorized reasonable request to a corresponding author if approved by an ethical review board of Uppsala University
-# Note 6: To get additional phenotypical data for GSE125105, please contact MPIP or a corresponding author for further instructions
+# Note 6: To get additional phenotypic data for GSE125105, please contact MPIP or a corresponding author for further instructions
 
 Working_directory = "~/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omics_multi_cohort/DNA_methylation" # Replace with an appropriate path
 setwd(Working_directory)
@@ -3036,7 +3036,7 @@ for (i in 1:nrow(ENTREZ_genes_Homo_Sapiens)){
   }
 }
 table(ENTREZ_Genes_Signif_overlap_idx) # No genes were identified through synonyms
-ENTREZ_Genes_Signif_Overlap_ids = unique(ENTREZ_Genes_Signif_Overlap$GeneID) # 1800 IDs
+ENTREZ_Genes_Signif_Overlap_ids = unique(ENTREZ_Genes_Signif_Overlap$GeneID) # 1801 IDs
 write.csv(ENTREZ_Genes_Signif_Overlap, "ENTEREZ_Genes_Signif_Overlap_total.csv")
 
 # Enrichment

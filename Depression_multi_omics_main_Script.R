@@ -17,7 +17,7 @@ options(stringsAsFactors = FALSE)
 
 
 ################### Package import ###################
-# Importing thet might be used (Note: Not all of them may be required)
+# Importing that might be used (Note: Not all of them may be required)
 library(fun)
 library(stringr)
 library(dplyr)
@@ -135,10 +135,10 @@ multiple_expander = function(df, cols_to_expand, pattern){
     print(i)
     curr_df_const = df_const[i,, drop = FALSE]
     curr_df_modif = df_modif[i,, drop = FALSE]
-    curr_df_modif = apply(curr_df_modif, 2, function(x) unlist(stri_split_fixed(x, pattern = pattern)))
+    curr_df_modif = apply(curr_df_modif, 2, function(x) unlist(stri_split_fixed(x, pattern = pattern)), simplify = FALSE)
     
     if (length(cols_to_expand) > 1){
-      curr_df_modif = do.call(cbind, curr_df_modif)
+        curr_df_modif = do.call(cbind, curr_df_modif)
     } else {
       curr_df_modif = as.character(curr_df_modif)
     }
@@ -623,6 +623,141 @@ clinical_trial_downloader_two_terms = function(Condition_terms, Treatment_terms,
   return(Output_data)
 }
 
+# A function to map SNPs from GTEx IDs to dbSNP
+
+map_SNPs_GTEx_dbSNP_b38 = function(PRF_SNP_ID_GTEx, 
+                                   PRF_bigBedToBed_location = "/home/aleksandr/UCSC_folder/bigBedToBed",
+                                   PRF_db_SNP_location = "http://hgdownload.soe.ucsc.edu/gbdb/hg38/snp/dbSnp153.bb",
+                                   PRF_span = 100,
+                                   PRF_tmp_file = "tmp_map_file.bed",
+                                   PRF_lag_param = 2){
+  
+  # Parsing SNP info
+  PRF_parsed_SNP = unlist(stri_split_fixed(PRF_SNP_ID_GTEx, pattern = "_"))
+  
+  print(PRF_parsed_SNP)
+  
+  # Output file
+  PRF_out_file = paste0(getwd(), "/", PRF_tmp_file)
+  
+  # Generate request to UCSC server
+  PRF_reqest = paste0(PRF_bigBedToBed_location, 
+                      " ",
+                      PRF_db_SNP_location,
+                      " ",
+                      "-chrom=",
+                      PRF_parsed_SNP[1],
+                      " ",
+                      "-start=",
+                      as.numeric(PRF_parsed_SNP[2])-PRF_span,
+                      " ",
+                      "-end=",
+                      as.numeric(PRF_parsed_SNP[2])+PRF_span,
+                      " ", 
+                      PRF_out_file)
+  
+  # Execute the request to UCSC server
+  terminalExecute(PRF_reqest, show = FALSE)
+  Sys.sleep(PRF_lag_param)
+  
+  # Reading obtained file
+  PRF_obtained_SNPs = read.table(PRF_out_file, sep = "\t")
+  
+  # Remove the TMP file
+  unlink(PRF_out_file)
+  
+  # Filtering SNPs
+  PRF_filtered_SNPs = PRF_obtained_SNPs[PRF_obtained_SNPs$V3 == as.numeric(PRF_parsed_SNP[2]),]
+  if (nrow(PRF_filtered_SNPs) < 1) {
+    # No SNPs found
+    return(NA)
+  }
+  
+  PRF_filtered_SNPs_ref_alleles = stri_split_fixed(PRF_filtered_SNPs$V5, pattern = ",")
+  PRF_filtered_SNPs_alt_alleles = stri_split_fixed(PRF_filtered_SNPs$V7, pattern = ",")
+  
+  # Checking alleles
+  PRF_ref_index = sapply(PRF_filtered_SNPs_ref_alleles, function(x){
+    PRF_parsed_SNP[3] %in% x
+  })
+  PRF_alt_index = sapply(PRF_filtered_SNPs_alt_alleles, function(x){
+    PRF_parsed_SNP[4] %in% x
+  })
+  PRF_ind_matrix = cbind(PRF_ref_index, PRF_alt_index)
+  PRF_ind_fin = apply(PRF_ind_matrix, 1, all)
+  
+  # Required SNP df
+  PRF_req_SNP_df = PRF_filtered_SNPs[PRF_ind_fin,]
+  
+  if (nrow(PRF_req_SNP_df) < 1) {
+    # No SNPs found
+    return(NA)
+  }
+  
+  if (nrow(PRF_req_SNP_df) > 1) {
+    # More than 1 SNPs found
+    PRF_SNPs = paste0(PRF_req_SNP_df$V4, collapse = ";")
+    return(PRF_SNPs)
+  }
+  
+  return(PRF_req_SNP_df$V4)
+}
+
+# A function to check gene symbols
+# Importing NIH dataset
+Homo_Sapiens_Gene_info_NIH = smart_fread("/home/aleksandr/Desktop/WORK/UCSC_ID_MAP/Homo_sapiens.gene_info") # https://ftp.ncbi.nih.gov/gene/DATA/GENE_INFO/Mammalia/ (replace with an appropriate path)
+Homo_Sapiens_Gene_info_NIH_expanded = multiple_expander(df = Homo_Sapiens_Gene_info_NIH, cols_to_expand = 5, pattern = "|")
+check_gene_symbol_NIH = function(PRF_gene_symbols, PRF_ref_NIH_expanded, PRF_replace_NA_with_old = FALSE){
+  PRF_gene_symbols_check = lapply(PRF_gene_symbols, function(x){
+    if (x %in% PRF_ref_NIH_expanded$Symbol_from_nomenclature_authority){
+      Curr_gene = x
+      Approved = TRUE
+      Suggested.Symbol = x
+    } else if (x %in% PRF_ref_NIH_expanded$Symbol){
+      RRF_df = PRF_ref_NIH_expanded[PRF_ref_NIH_expanded$Symbol == x,]
+      Curr_gene = x
+      Approved = FALSE
+      Suggested.Symbol = RRF_df[,"Symbol_from_nomenclature_authority"]
+      Suggested.Symbol = unique(Suggested.Symbol)
+      Suggested.Symbol = Suggested.Symbol[Suggested.Symbol != "-"]
+      if (length(Suggested.Symbol) >= 1){
+        Suggested.Symbol = Suggested.Symbol[1]
+        if (Suggested.Symbol == x){
+          Approved = TRUE
+        }
+      } else {
+        Suggested.Symbol = RRF_df[,"Symbol"]
+        Suggested.Symbol = unique(Suggested.Symbol)
+        Suggested.Symbol = Suggested.Symbol[1]
+      }
+    } else if (x %in% PRF_ref_NIH_expanded$Synonyms){
+      RRF_df = PRF_ref_NIH_expanded[PRF_ref_NIH_expanded$Synonyms == x,]
+      Curr_gene = x
+      Approved = FALSE
+      Suggested.Symbol = RRF_df[,"Symbol_from_nomenclature_authority"]
+      Suggested.Symbol = unique(Suggested.Symbol)
+      Suggested.Symbol = Suggested.Symbol[Suggested.Symbol != "-"]
+      if (length(Suggested.Symbol) >= 1){
+        Suggested.Symbol = Suggested.Symbol[1]
+      } else {
+        Suggested.Symbol = RRF_df[,"Symbol"]
+        Suggested.Symbol = unique(Suggested.Symbol)
+        Suggested.Symbol = Suggested.Symbol[1]
+      }
+    } else {
+      Curr_gene = x
+      Approved = FALSE
+      Suggested.Symbol = NA
+      if (PRF_replace_NA_with_old){
+        Suggested.Symbol = x
+      }
+    }
+    Dataset = data.frame(x = Curr_gene, Approved = Approved, Suggested.Symbol = Suggested.Symbol)
+  })
+  PRF_gene_symbols_check = list_to_df(PRF_gene_symbols_check)
+  return(PRF_gene_symbols_check)
+}
+
 
 ################### Importing results from the GWAS Catalog analysis ###################
 
@@ -692,6 +827,7 @@ Combined_methyl_df_significant_unique = distinct(Combined_methyl_df_significant,
 CpG_table_methyl_depr = as.data.frame(table(Combined_methyl_df_significant$CpG))
 CpG_table_methyl_depr_Overlap = CpG_table_methyl_depr[CpG_table_methyl_depr$Freq > 1,]
 CpG_table_methyl_depr_Overlap = CpG_table_methyl_depr_Overlap$Var1
+CpG_table_methyl_depr_Overlap_all = as.character(CpG_table_methyl_depr_Overlap)
 CpG_table_methyl_depr_Overlap_index = sapply(CpG_table_methyl_depr_Overlap, function(PRF_x){
   PRF_LFs = Combined_methyl_df_significant[Combined_methyl_df_significant$CpG == PRF_x,]
   PRF_LFs = PRF_LFs$logFC
@@ -712,6 +848,7 @@ table(CpG_table_methyl_depr_Overlap_index)
 # 1480 show matching directions, 1011 are not matching
 CpG_table_methyl_depr_Overlap = CpG_table_methyl_depr_Overlap[CpG_table_methyl_depr_Overlap_index]
 Df_methyl_Signif_Overlap = Combined_methyl_df_significant[Combined_methyl_df_significant$CpG %in% CpG_table_methyl_depr_Overlap, ]
+Df_methyl_Signif_Overlap_all = Combined_methyl_df_significant[Combined_methyl_df_significant$CpG %in% CpG_table_methyl_depr_Overlap_all, ]
 
 # Chromosome map
 Chrom_heatmap_df_methyl = smart_fread(paste0(Methyl_data_folder, "Chrom_heatmap_df_methyl.csv"))
@@ -1637,6 +1774,264 @@ pdf("Stats_drugs_DB_plot.pdf", width = 10, height = 10)
 Stats_drugs_DB_plot
 dev.off()
 rm(list = ls()[stri_detect_fixed(ls(), pattern = "PRF_")])
+
+# Writing full drug stats
+Full_drug_stats = list("IUPHAR" = Proteins_Drugs_Stats_Full, "DrugBank" = Proteins_Drugs_Stats_Drug_Bank)
+openxlsx::write.xlsx(Full_drug_stats, "Full_drug_stats.xlsx")
+
+################### Additional SNP statistics ###################
+
+HOWARD_DM_SNPS_NAT = GWAS_Cat_Filtered_df[GWAS_Cat_Filtered_df$LINK == "www.ncbi.nlm.nih.gov/pubmed/30718901",]
+HOWARD_DM_SNPS_NAT = HOWARD_DM_SNPS_NAT[HOWARD_DM_SNPS_NAT$`P-VALUE` < 5 * 10^-8,] # 92 unique SNPs with GWAS significance
+HOWARD_DM_SNPS_NAT = HOWARD_DM_SNPS_NAT$SNPS
+
+# Reproducible SNPs GWAS Cat´
+GWAS_CAT_reprod = openxlsx::read.xlsx("/home/aleksandr/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omics_multi_cohort/GWAS_Catalog/GWAS_CAT_Depress_specific_genome_sign_SNPs_stats.xlsx")
+GWAS_CAT_reprod = GWAS_CAT_reprod[GWAS_CAT_reprod$Count > 1,]
+table(HOWARD_DM_SNPS_NAT %in% GWAS_CAT_reprod$`Genome-wide.significant.SNP`) # 30 (31%) in reproducible, 66 not in the reproducible
+
+
+################### Mapping individual OMICs layers and overlaps to GTEx database ###################
+# 1sr post-mortem data from GTEx portal (We primarily use the whole blood since it was used as the main sample source)
+# GTEx_Analysis_v8_trans_eGenes_fdr05.txt trans-eQTLs mapped individually in each tissue, at FDR < 0.05
+
+Trans_eQTLs_GTEx = smart_fread("/home/aleksandr/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omics_multi_cohort/GTEx_portal/GTEx_Analysis_v8_trans_eGenes_fdr05.txt")
+Cis_eQTLs_GTEx = smart_fread("/home/aleksandr/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omics_multi_cohort/GTEx_portal/GTEx_Analysis_v8_eQTL/Whole_Blood.v8.egenes.txt")
+
+# Checking IDs 
+Trans_eQTLs_GTEx$variant_id %in% Cis_eQTLs_GTEx$variant_id # Only 5 SNPs overlap in both lists...
+
+# Mapping Trans_eQTLs_GTEx to dbSNP ids, 9 variants were not mapped to dbSNP153
+Trans_eQTLs_GTEx$dbSNP153id = sapply(Trans_eQTLs_GTEx$variant_id, function(x){
+  
+  x = map_SNPs_GTEx_dbSNP_b38(PRF_SNP_ID_GTEx = x, PRF_lag_param = 5)
+  return(x)
+  
+})
+
+# Mappings SNPs to depression GWAS results
+Trans_eQTLs_GTEx_depr = Trans_eQTLs_GTEx[Trans_eQTLs_GTEx$dbSNP153id %in% GWAS_CAT_Depress_specific_SNPs_153_mapped$name,] # None were mapped to depression SNPs from GWAS Cat
+Cis_eQTLs_GTEx_depr = Cis_eQTLs_GTEx[Cis_eQTLs_GTEx$rs_id_dbSNP151_GRCh38p7 %in% GWAS_CAT_Depress_specific_SNPs_153_mapped$name, ] # 6 SNPs were mapped
+Cis_eQTLs_GTEx_depr$Gene_SNP = sapply(Cis_eQTLs_GTEx_depr$rs_id_dbSNP151_GRCh38p7, function(x){
+  x = GWAS_CAT_Depress_specific_SNPs_153_mapped[GWAS_CAT_Depress_specific_SNPs_153_mapped$name == x, "Mapped_gene_fixed"]
+  return(x)
+})
+check_gene_symbol_NIH(Cis_eQTLs_GTEx_depr$gene_name, PRF_ref_NIH_expanded = Homo_Sapiens_Gene_info_NIH_expanded)
+c("RP5-1115A15","PRKAR2A","MST1R","BTN2A2","AKR1C3","DNASE1L2")
+
+Cis_eQTLs_GTEx_depr$gene_name %in% Genes_matching_dir_expression # No overlap with genes matching direction expression
+
+# Cis eQTLs in the brain
+files = list.files("/home/aleksandr/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omics_multi_cohort/GTEx_portal/GTEx_Analysis_v8_eQTL")
+files = files[stri_detect_fixed(files, pattern = "Brain")]
+files = files[stri_detect_fixed(files, pattern = "egenes")]
+brain_names = sapply(files, function(x){
+  x = unlist(stri_split_fixed(x, pattern = "."))
+  x = x[1]
+  return(x)
+})
+files_paths = paste0("/home/aleksandr/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omics_multi_cohort/GTEx_portal/GTEx_Analysis_v8_eQTL/", files)
+
+brain_eQTLS_GTEx = list()
+for ( i in 1:length(brain_names)){
+  PRF_df = smart_fread(files_paths[i])
+  PRF_df = cbind(Tissue = brain_names[i], PRF_df)
+  brain_eQTLS_GTEx[[i]] = PRF_df
+}
+brain_eQTLS_GTEx = do.call(rbind, brain_eQTLS_GTEx)
+
+brain_eQTLS_GTEx_depr = brain_eQTLS_GTEx[brain_eQTLS_GTEx$rs_id_dbSNP151_GRCh38p7 %in% GWAS_CAT_Depress_specific_SNPs_153_mapped$name, ]
+table(brain_eQTLS_GTEx_depr$gene_name %in% Genes_matching_dir_expression) # None were mapped to genes with matching dir in blood
+repeated_brain_eQTLs_GTEx = as.data.frame(table(brain_eQTLS_GTEx_depr$rs_id_dbSNP151_GRCh38p7))
+repeated_brain_eQTLs_GTEx = repeated_brain_eQTLs_GTEx[repeated_brain_eQTLs_GTEx$Freq > 1,]
+
+# Stats blood
+table(Cis_eQTLs_GTEx_depr$rs_id_dbSNP151_GRCh38p7 %in% HOWARD_DM_SNPS_NAT) # 4 not in Howard DM, 2 in Howard DM, 6 total "rs301799"   "rs13084037"
+table(Cis_eQTLs_GTEx_depr$rs_id_dbSNP151_GRCh38p7 %in% GWAS_CAT_reprod$`Genome-wide.significant.SNP`) # 6 not in reprod
+
+# Stats brain
+table(repeated_brain_eQTLs_GTEx$Var1 %in% HOWARD_DM_SNPS_NAT) # 18 not in Howard DM, 3 in Howard DM, 21 total rs12624433 rs13084037 rs1933802 
+table(repeated_brain_eQTLs_GTEx$Var1 %in% GWAS_CAT_reprod$`Genome-wide.significant.SNP`) # 17 not in reprod, 4 in reprod, 21 total rs12624433 rs1933802  rs2721811  rs9517313 
+table(unique(brain_eQTLS_GTEx_depr$rs_id_dbSNP151_GRCh38p7) %in% HOWARD_DM_SNPS_NAT) # 7 in Howard DM
+table(unique(brain_eQTLS_GTEx_depr$rs_id_dbSNP151_GRCh38p7) %in% GWAS_CAT_reprod$`Genome-wide.significant.SNP`) # 8 in reprod
+
+################### Mapping individual OMICs layers and overlaps to BIOS QTL browser ###################
+
+# Importing BIOS QTL browser data
+Cis_meQTL_BIOS = smart_fread("/home/aleksandr/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omics_multi_cohort/BIOS_qtl/2015_09_02_cis_meQTLsFDR0.05-CpGLevel.txt")
+Trans_meQTL_BIOS = smart_fread("/home/aleksandr/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omics_multi_cohort/BIOS_qtl/2015_09_02_trans_meQTLsFDR0.05-CpGLevel.txt")
+Cis_eQTM_BIOS =  smart_fread("/home/aleksandr/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omics_multi_cohort/BIOS_qtl/2015_09_02_cis_eQTMsFDR0.05-CpGLevel.txt")
+gene_eQTLs_BIOS =  smart_fread("/home/aleksandr/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omics_multi_cohort/BIOS_qtl/gene_level_eQTLs.txt", sep = "\t")
+
+# Start with eQTLs
+gene_eQTLs_BIOS_depr = gene_eQTLs_BIOS[gene_eQTLs_BIOS$SNPName %in% GWAS_CAT_Depress_specific_SNPs_153_mapped$name, ]
+gene_eQTLs_BIOS_depr_expanded = multiple_expander(df = gene_eQTLs_BIOS_depr, cols_to_expand = c(5,17), pattern = ",")
+gene_eQTLs_BIOS_depr_snps = gene_eQTLs_BIOS_depr$SNPName
+gene_eQTLs_BIOS_depr_snps = unique(gene_eQTLs_BIOS_depr_snps) # 599 unique SNPs are eQTLs
+
+associated_genes_eQTLs_BIOS_depr = gene_eQTLs_BIOS_depr$HGNCName
+associated_genes_eQTLs_BIOS_depr = unlist(stri_split_fixed(associated_genes_eQTLs_BIOS_depr, pattern = ","))
+associated_genes_eQTLs_BIOS_depr = unique(associated_genes_eQTLs_BIOS_depr) # 1142 unique genes
+
+# Matching to transcriptome
+associated_genes_eQTLs_BIOS_depr[associated_genes_eQTLs_BIOS_depr %in% Genes_matching_dir_expression] # "BEST1"    "FES"      "RNF24"    "HIP1"     "ACOX1"    "ST3GAL6"  "NEU1"     "HLA-DPB1" "C11orf80" "OASL"     "PANX2"    "CASP1"  
+table(associated_genes_eQTLs_BIOS_depr %in% Genes_matching_dir_expression) # 12 genes are among the ones with matching trancriptome direction
+associated_genes_eQTLs_BIOS_depr[associated_genes_eQTLs_BIOS_depr %in% Overlapping_genes_gwas_transcript] # 2 genes are in the overlap "RNF24" "HIP1" (2 out of 7)
+
+# Matching to reprod SNPs and  Howard DM
+table(gene_eQTLs_BIOS_depr_snps %in% HOWARD_DM_SNPS_NAT) # 561 not in Howard DM, 38 in Howard DM
+table(gene_eQTLs_BIOS_depr_snps %in% GWAS_CAT_reprod$`Genome-wide.significant.SNP`) # 564 not in reproducible, 35 in reproducible
+
+# Reviewing DNA methylation associations
+
+# Trans meQTL
+Trans_meQTL_BIOS_depr = Trans_meQTL_BIOS[Trans_meQTL_BIOS$SNPName %in% GWAS_CAT_Depress_specific_SNPs_153_mapped$name, ] # 99 in total
+Trans_meQTL_BIOS_depr_SNPs = Trans_meQTL_BIOS_depr$SNPName
+length(unique(Trans_meQTL_BIOS_depr_SNPs)) # 13 unique SNPs affecting DNA methylation at FDR
+Trans_meQTL_BIOS_depr_CpGs = Trans_meQTL_BIOS_depr$ProbeName
+length(unique(Cis_meQTL_BIOS_depr_CpGs))  # 96 unique CpGs
+
+# Matching to reproducible CpGs
+table(Trans_meQTL_BIOS_depr_CpGs %in% CpG_table_methyl_depr_Overlap_all) # No CpGs were detected in the overlap
+
+# Matching to reprod SNPs and  Howard DM
+table(unique(Trans_meQTL_BIOS_depr_SNPs) %in% HOWARD_DM_SNPS_NAT) # 12 not in Howard DM, 1 in Howard DM
+table(unique(Trans_meQTL_BIOS_depr_SNPs) %in% GWAS_CAT_reprod$`Genome-wide.significant.SNP`) # 10 not in reproducible, 3 in reproducible
+
+# Cis meQTL
+Cis_meQTL_BIOS_depr = Cis_meQTL_BIOS[Cis_meQTL_BIOS$SNPName %in% GWAS_CAT_Depress_specific_SNPs_153_mapped$name, ] # 211 in total
+Cis_meQTL_BIOS_depr_SNPs = Cis_meQTL_BIOS_depr$SNPName
+length(unique(Cis_meQTL_BIOS_depr_SNPs)) # 121 unique SNPs affecting DNA methylation at FDR
+Cis_meQTL_BIOS_depr_CpGs = Cis_meQTL_BIOS_depr$ProbeName
+length(unique(Cis_meQTL_BIOS_depr_CpGs))  # 210 unique CpGs
+
+# Matching to reproducible CpGs
+table(Cis_meQTL_BIOS_depr_CpGs %in% CpG_table_methyl_depr_Overlap_all) # 209 not in reproducible, 2 in reproducible "cg26688911" "cg07325168"
+Cis_meQTL_BIOS_depr_CpGs[Cis_meQTL_BIOS_depr_CpGs %in% CpG_table_methyl_depr_Overlap_all]
+Cis_meQTL_BIOS_depr_matched = Cis_meQTL_BIOS_depr[Cis_meQTL_BIOS_depr$ProbeName %in% CpG_table_methyl_depr_Overlap_all,]
+Cis_meQTL_BIOS_depr_matched$SNP_gene = sapply(Cis_meQTL_BIOS_depr_matched$SNPName, function(x){
+  x = GWAS_CAT_Depress_specific_SNPs_153_mapped[GWAS_CAT_Depress_specific_SNPs_153_mapped$name == x, "Mapped_gene_fixed"]
+  return(x)
+})
+Cis_meQTL_BIOS_depr_matched$CpG_gene = sapply(Cis_meQTL_BIOS_depr_matched$ProbeName, function(x){
+  x = Combined_methyl_df_significant_unique[Combined_methyl_df_significant_unique$CpG == x, "Upd_gene_name"]
+  return(x)
+})
+Cis_meQTL_BIOS_depr_matched$SNP_gene == Cis_meQTL_BIOS_depr_matched$CpG_gene # Both match
+Cis_meQTL_BIOS_depr_matched$SNP_gene %in% Intersect_GWAS_Methyl
+"LPIN3" %in% Df_methyl_Signif_Overlap_all$Upd_gene_name
+
+# Matching to reproducible SNPs and Howard DM
+table(unique(Cis_meQTL_BIOS_depr_SNPs) %in% HOWARD_DM_SNPS_NAT) # 113 not in Howard DM, 8 in Howard DM
+table(unique(Cis_meQTL_BIOS_depr_SNPs) %in% GWAS_CAT_reprod$`Genome-wide.significant.SNP`) # 111 not in reproducible, 10 in reprod
+table(unique(Cis_meQTL_BIOS_depr_matched$SNPName) %in% GWAS_CAT_reprod$`Genome-wide.significant.SNP`) # 1 not in reproducible, 1 in reprod
+
+# Cis eQTM mapping
+Cis_eQTM_BIOS_depr = Cis_eQTM_BIOS[Cis_eQTM_BIOS$SNPName %in% CpG_table_methyl_depr_Overlap_all,] # it is not an SNP, 112 pairs, 85 unique SNPs
+Cis_eQTM_BIOS_depr_genes = Cis_eQTM_BIOS_depr$HGNCName
+Cis_eQTM_BIOS_depr_genes = unique(Cis_eQTM_BIOS_depr_genes)
+
+# meQTL relation
+table(Cis_meQTL_BIOS_depr_CpGs %in% Cis_eQTM_BIOS_depr$SNPName) # No overlaps between meQTL and Cis eQTM
+c("cg26688911", "cg07325168") %in% Cis_eQTM_BIOS_depr$SNPName
+
+# Matching to transcriptome
+table(Cis_eQTM_BIOS_depr_genes %in% Genes_matching_dir_expression) # None of them overlap with transcriptome
+Cis_eQTM_BIOS_depr_genes[Cis_eQTM_BIOS_depr_genes %in% Genes_matching_dir_expression]
+Cis_eQTM_BIOS_depr_genes[Cis_eQTM_BIOS_depr_genes %in% Overlapping_genes_methyl_transcript] # None of them overlap with methyl-transcriptome
+
+
+################### Network visualization ###################
+
+# Preparing datasets
+# eQTL
+gene_eQTLs_BIOS_depr_matched = gene_eQTLs_BIOS_depr_expanded[gene_eQTLs_BIOS_depr_expanded$HGNCName %in% Genes_matching_dir_expression,]
+all(gene_eQTLs_BIOS_depr_matched$SNPName %in% GWAS_CAT_Depress_specific_SNPs_153_mapped$name) # All are among depression SNPs
+
+# meQTL
+Cis_meQTL_BIOS_depr_matched
+
+# Making graphs
+eQTL_graph = gene_eQTLs_BIOS_depr_matched[,c("SNPName", "HGNCName")]
+colnames(eQTL_graph) = c("Start", "End")
+meQTL_graph = Cis_meQTL_BIOS_depr_matched[,c("SNPName", "ProbeName")]
+colnames(meQTL_graph) = c("Start", "End")
+
+Graph_DS = rbind(eQTL_graph, meQTL_graph)
+network_data = graph_from_data_frame(d = Graph_DS[,1:2], directed = TRUE)
+network_data = toVisNetworkData(network_data)
+
+# Setting nodes
+network_data$nodes$group = sapply(network_data$nodes$id, function(x){
+  if (x %in% GWAS_CAT_Depress_specific_SNPs_153_mapped$name & x %!in% GWAS_CAT_reprod$`Genome-wide.significant.SNP`){
+    return("SNP")
+  } else if (x %in% GWAS_CAT_Depress_specific_SNPs_153_mapped$name & x %in% GWAS_CAT_reprod$`Genome-wide.significant.SNP`){
+    return("Reprod.SNP")
+  } else if (x %in% CpG_table_methyl_depr_Overlap_all & x %!in% CpG_table_methyl_depr_Overlap){
+    return("CpG")
+  } else if (x %in% CpG_table_methyl_depr_Overlap_all & x %in% CpG_table_methyl_depr_Overlap){
+    return("CpG.Matching.dir")
+  } else {
+    return("Transcript")
+  }
+  
+})
+
+# Setting edges
+network_data$edges$color = NA
+network_data$edges$label = NA
+network_data$edges$arrows = "to"
+network_data$edges$font.color = NA
+network_data$edges$font.size = 15
+
+for (i in 1:nrow(network_data$edges)){
+  PRF_Start = network_data$edges$from[i]
+  PRF_End = network_data$edges$to[i]
+  
+  PRF_gr_Start = network_data$nodes[network_data$nodes$id == network_data$edges$from[i], "group" ]
+  PRF_gr_End = network_data$nodes[network_data$nodes$id == network_data$edges$to[i], "group" ]
+  
+  if (PRF_gr_Start %in% c("SNP", "Reprod.SNP") & PRF_gr_End %in% c("CpG", "CpG.Matching.dir")){
+    network_data$edges$color[i] = "blue"
+    network_data$edges$font.color[i] = "blue"
+    network_data$edges$label[i] = "meQTL"
+  } else if (PRF_gr_Start %in% c("SNP", "Reprod.SNP") & PRF_gr_End %in% "Transcript"){
+    network_data$edges$color[i] = "red"
+    network_data$edges$font.color[i] = "red"
+    network_data$edges$label[i] = "eQTL"
+  }
+}
+
+net = visNetwork(nodes = network_data$nodes, edges = network_data$edges, height = "2000px", width = "2000px") %>%
+  visIgraphLayout(layout = "layout_with_fr", physics = FALSE, randomSeed = 190) %>%
+  visGroups(groupname = "SNPl", color = list("background" = "skyblue", border = "black")) %>% 
+  visGroups(groupname = "Reprod.SNP", color = list("background" = "green", border = "black")) %>% 
+  visGroups(groupname = "CpG", color = list("background" = "red", border = "black")) %>% 
+  visGroups(groupname = "CpG.Matching.dir", color = list("background" = "#FBCEB1", border = "black")) %>% 
+  visGroups(groupname = "Transcript", color = list("background" = "orange", border = "black")) %>% 
+  visNodes(size = 15, borderWidth = 0.3, font = list(size = 24)) %>%
+  visEdges(width = 1.5, smooth = list(type = "curvedCW", roundness = 0.1)) %>%
+  visPhysics(barnesHut = list(gravitationalConstant = -100000, avoidOverlap = 0.9)) %>%
+  visOptions(highlightNearest = list(enabled = T, hover = T), 
+             nodesIdSelection = F)
+visSave(net, file = "mapped_hits.html")
+webshot("mapped_hits.html", "mapped_hits.png", vwidth = 2000, vheight = 2000, zoom = 1)
+
+# Writing outputs
+
+QTL_analysis_list = list(
+  "blood_eQTLS_GTEx" = Cis_eQTLs_GTEx_depr,
+  "brain_eQTLS_GTEx" = brain_eQTLS_GTEx_depr,
+  "eQTLs_BIOS" = gene_eQTLs_BIOS_depr,
+  "blood_eQTLs_BIOS_matched" = gene_eQTLs_BIOS_depr_matched,
+  "blood_eQTMs_BIOS" = Cis_eQTM_BIOS_depr
+)
+write.xlsx(QTL_analysis_list,"QTL_analysis_list.xlsx" ,overwrite = TRUE)
+
+
+
+
+
 
 
 
