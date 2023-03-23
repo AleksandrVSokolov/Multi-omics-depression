@@ -119,6 +119,8 @@ affy::hist(rawdata_GSE98793) # Variance because of batching, need to use Combat 
 affy::boxplot(rawdata_GSE98793) # To preview boxplots
 head(intensity(rawdata_GSE53987)) # To preview intensities
 image(rawdata_GSE53987, transfo=log) # To view images
+degradation = AffyRNAdeg(rawdata_GSE98793) # To view RNA degradation
+plotAffyRNAdeg(degradation, transform = "shift.scale", cols = NULL)
 
 # Correcting background, Normalizing, Summarizing
 Eset_GSE98793  = affy::expresso(afbatch = rawdata_GSE98793, bgcorrect.method = "rma",
