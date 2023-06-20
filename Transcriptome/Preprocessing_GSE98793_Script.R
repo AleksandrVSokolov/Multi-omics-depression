@@ -1,8 +1,7 @@
 # Preprocessing Script for the GSE98793
 # Raw data files could be obtained from corresponding repository at GSE98793 https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE98793
 # Note 1: To execute the script, the user has to download files from repository
-# Note 2: The equal sign = was used as an assignment operator as authors don't buy the idea of using <- for typing/productivity reasons
-# Note 3: In many cases loops were deliberately used instead of apply functions to enable better control of the variables (even though loops in R are slow and computationally inefficient)
+# Note 2: The equal sign = was used as an assignment operator for typing/productivity reasons
 
 Working_directory = "..." # Replace with an appropriate directory
 setwd(Working_directory)
@@ -119,8 +118,6 @@ affy::hist(rawdata_GSE98793) # Variance because of batching, need to use Combat 
 affy::boxplot(rawdata_GSE98793) # To preview boxplots
 head(intensity(rawdata_GSE53987)) # To preview intensities
 image(rawdata_GSE53987, transfo=log) # To view images
-degradation = AffyRNAdeg(rawdata_GSE98793) # To view RNA degradation
-plotAffyRNAdeg(degradation, transform = "shift.scale", cols = NULL)
 
 # Correcting background, Normalizing, Summarizing
 Eset_GSE98793  = affy::expresso(afbatch = rawdata_GSE98793, bgcorrect.method = "rma",

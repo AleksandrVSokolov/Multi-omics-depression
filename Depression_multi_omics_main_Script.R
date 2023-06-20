@@ -1,9 +1,9 @@
 ################# This script shows analysis for the overlaps, clinical, and drug data ################# 
-# Note 1: The equal sign = was used as an assignment operator as authors don't buy the idea of using <- for typing/productivity reasons
-# Note 2: In many cases loops were deliberately used instead of apply functions to enable better control of the variables (even though loops in R are slow and computationally inefficient)
+# Note 1: The equal sign = was used as an assignment operator for typing/productivity reasons
+# Note 2: In many cases loops were deliberately used instead of apply functions to enable better control of the variables
 # Note 3: Some variables in the loops contain prefixes to enable easy cleanup of the environment once the loop is executed
 # Note 4: The script uses data from NIH Drug portal which is now discontinue and available from PubChem only https://www.nlm.nih.gov/pubs/techbull/ja22/ja22_pubchem.html ->
-# -> the last downloaded datasets with synonyms and classes are provided here
+# -> the last downloaded datasets with synonyms and classes are provided here: https://ftp.nlm.nih.gov/projects/chemidlease/chemid-20230222.zip
 # Note 5: The script uses data from the DrugBank database (https://go.drugbank.com/). To obtain its dataset, please make a request to https://go.drugbank.com/
 # Note 6: The script uses data from the IUPHAR Guide To Pharmacology database (https://www.guidetopharmacology.org/) To obtain its dataset, please use the database download page
 
@@ -11,7 +11,7 @@ Working_directory = "~/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omi
 setwd(Working_directory)
 
 # Setting options
-getOption("scipen") # default number notation is 0
+getOption("scipen") # Default number notation is 0
 options(scipen=999)
 options(stringsAsFactors = FALSE)
 
@@ -49,7 +49,6 @@ library(limma)
 library(FactoMineR)
 library(ggthemes)
 library(igraph)
-library(UniprotR)
 library(RSelenium)
 library(lumi)
 library(outliers)
@@ -69,7 +68,6 @@ library(clusterProfiler)
 library(DOSE)
 library(enrichplot)
 library(chromoMap)
-library(UniprotR)
 library(RIdeogram)
 library(ggVennDiagram)
 library(seqinr)
@@ -94,7 +92,7 @@ list_to_df = function(data_list){
 # A function to replace multiple patterns by multiple replacements in a string
 multiple_stri_replacer = function(string, pattern_vector, replacement_vector){
   
-  # pattern_vector and replacement_vector should have the same length
+  # Pattern_vector and replacement_vector should have the same length
   for (i in 1:length(pattern_vector)){
     string = stri_replace_all_fixed(str = string, pattern = pattern_vector[i], replacement = replacement_vector[i])
   }
@@ -103,7 +101,7 @@ multiple_stri_replacer = function(string, pattern_vector, replacement_vector){
 
 # A function to read text files fast; uses data.table::fread
 smart_fread = function(x, ...){
-  x = as.data.frame(fread(x, nThread = 14, ...))
+  x = as.data.frame(fread(x, nThread = 10, ...))
   if ("V1" %in% colnames(x)){
     rownames(x) = x$V1
     x$V1 = NULL
@@ -129,7 +127,7 @@ multiple_expander = function(df, cols_to_expand, pattern){
   df_const = df[,-cols_to_expand, drop = FALSE]
   orig_colnames_modif = colnames(df_modif)
   
-  # running expansion
+  # Running expansion
   df_list = list()
   for (i in 1:nrow(df_const)){
     print(i)
@@ -140,7 +138,7 @@ multiple_expander = function(df, cols_to_expand, pattern){
     if (length(cols_to_expand) > 1){
         curr_df_modif = do.call(cbind, curr_df_modif)
     } else {
-      curr_df_modif = as.character(curr_df_modif)
+      curr_df_modif = unlist(curr_df_modif)
     }
     
     if (is.matrix(curr_df_modif)){
@@ -224,10 +222,10 @@ make_Venn_digram_list = function(named_list, plot_full_path = NULL, ...){
   }
 }
 
-# function to perform enrichment for GO terms and KEGG and create figures that may be useful
-# all results are saved in the specified folder
-# genes and universe are accepted as vectors of Entrez IDs
-# some of the ploting is performed within tryCatch since these plots may not be rendered depending on the enrichment results
+# Function to perform enrichment for GO terms and KEGG and create figures that may be useful
+# All results are saved in the specified folder
+# Genes and universe are accepted as vectors of Entrez IDs
+# Some of the plotting is performed within tryCatch since these plots may not be rendered depending on the enrichment results
 run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show = 30, folder, plot_name_pref){
   
   # genes should be submitted as Entrez IDs
@@ -399,7 +397,7 @@ run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show =
         dev.off()
       }, error = function(e) {writeLines(paste0("Full gene conc plot is not available for ", filename))})
       
-      #GO induced graph
+      # GO induced graph
       tryCatch({
         pdf(paste0(filename, "_go_graph.pdf"), 
             width = 19, height = 11)
@@ -414,7 +412,7 @@ run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show =
         dev.off()
       }, error = function(e) {writeLines(paste0("Go graph (big) is not available for ", filename))})
       
-      #Tree plot
+      # Tree plot
       Curr_GO_pairwise = enrichplot::pairwise_termsim(Curr_GO)
       dimensions = c(19*nrow(Curr_GO_pairwise@termsim)/categories_to_show, 11*nrow(Curr_GO_pairwise@termsim)/categories_to_show)
       if (any(dimensions < 1)){
@@ -436,7 +434,7 @@ run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show =
       }, error = function(e) {writeLines(paste0("Tree plot (big) is not available for ", filename))})
       
       
-      #Enrichment map
+      # Enrichment map
       tryCatch({
         pdf(paste0(filename, "_enr_map.pdf"), 
             width = 19, height = 11)
@@ -456,7 +454,7 @@ run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show =
     }
   }
   
-  # preparing outputs to load into the environment
+  # Preparing outputs to load into the environment
   GO_Enrichment[[4]] = KEGG_Enrichment
   
   if (is.null(KEGG_Enrichment)){
@@ -498,131 +496,193 @@ valid_url = function(URL, t = 2){
 
 # A function to perform searches in ClinicalTrials.gov with two search terms (condition and treatment)
 # The function is vectorized and generates all combinations of condtions and treatments
-clinical_trial_downloader_two_terms = function(Condition_terms, Treatment_terms, Folder, index = 1){
+clinical_trial_downloader_two_terms = function(condition_terms = NULL,
+                                                treatment_terms = NULL,
+                                                folder,
+                                                url_suffix = NULL){
   
-  # Creating a directory
-  if (paste0('./', Folder) %!in% list.dirs()){dir.create(Folder)}
+  if (!(paste0('./', folder) %in% list.dirs())){
+    dir.create(folder)
+  } else {
+    stop("Please specify a new folder")
+  }
   
-  # Preparing condition terms
-  Condition_terms = str_trim(Condition_terms)
-  Condition_terms = Condition_terms[Condition_terms != ""]
-  Condition_terms = Condition_terms[!is.na(Condition_terms)]
-  Condition_terms = toupper(Condition_terms)
-  Condition_terms = unique(Condition_terms)
-  Condition_terms = stri_replace_all_fixed(str = Condition_terms,pattern = " ", replacement = "+")
-  Condition_terms = stri_replace_all_fixed(str = Condition_terms,pattern = "(", replacement = "%28")
-  Condition_terms = stri_replace_all_fixed(str = Condition_terms,pattern = ")", replacement = "%29")
-  Condition_terms = stri_replace_all_fixed(str = Condition_terms,pattern = ",", replacement = "%2C")
-  Condition_terms = stri_replace_all_fixed(str = Condition_terms,pattern = "'", replacement = "%27")
+  if (!is.null(condition_terms)){
+    condition_terms = stringr::str_trim(condition_terms)
+    condition_terms = condition_terms[condition_terms != ""]
+    condition_terms = condition_terms[!is.na(condition_terms)]
+    condition_terms_initial = condition_terms
+    condition_terms = toupper(condition_terms)
+    condition_terms = unique(condition_terms)
+    condition_terms = stringi::stri_replace_all_fixed(str = condition_terms, pattern = " ", replacement = "+")
+    condition_terms = URLencode(condition_terms)
+    
+    if (length(treatment_terms) >= 1){
+      condition_terms_initial = sapply(condition_terms_initial, function(x) paste0(x, rep("", times = length(treatment_terms))))
+    }
+    
+  }
   
-  # Preparing treatment search terms
-  Treatment_terms = str_trim(Treatment_terms)
-  Treatment_terms = Treatment_terms[Treatment_terms != ""]
-  Treatment_terms = Treatment_terms[!is.na(Treatment_terms)]
+  if (!is.null(treatment_terms)){
+    treatment_terms = stringr::str_trim(treatment_terms)
+    treatment_terms = treatment_terms[treatment_terms != ""]
+    treatment_terms = treatment_terms[!is.na(treatment_terms)]
+    terms_initial = treatment_terms
+    
+    if (length(condition_terms) >= 1){
+      terms_initial = rep(terms_initial, times = length(condition_terms))
+    }
+    
+    
+    treatment_terms = toupper(treatment_terms)
+    treatment_terms = unique(treatment_terms)
+    treatment_terms = stringi::stri_replace_all_fixed(str = treatment_terms, pattern = " ", replacement = "+")
+    treatment_terms = URLencode(treatment_terms)
+  }
   
-  # Saving the initial spelling of interventions (for logs)
-  Terms_initial = Treatment_terms
-  Terms_initial = rep(Terms_initial, times = length(Condition_terms))
+  if (is.null(condition_terms)){
+    condition_terms = ""
+    condition_terms_initial = ""
+  }
+  if (is.null(treatment_terms)){
+    treatment_terms = ""
+    terms_initial = NA
+  }
   
-  # Preparing treatment search terms
-  Treatment_terms = toupper(Treatment_terms)
-  Treatment_terms = unique(Treatment_terms)
-  Treatment_terms = stri_replace_all_fixed(str = Treatment_terms,pattern = " ", replacement = "+")
-  Treatment_terms = stri_replace_all_fixed(str = Treatment_terms,pattern = "(", replacement = "%28")
-  Treatment_terms = stri_replace_all_fixed(str = Treatment_terms,pattern = ")", replacement = "%29")
-  Treatment_terms = stri_replace_all_fixed(str = Treatment_terms,pattern = ",", replacement = "%2C")
-  Treatment_terms = stri_replace_all_fixed(str = Treatment_terms,pattern = "'", replacement = "%27")
-  
-  # Preparing base strings
   Base_string_1_main = "https://clinicaltrials.gov/ct2/results/download_fields?cond="
   Base_string_2_main = "&intr="
-  Base_string_3_main = '&type=Intr&down_count=10000&down_chunk=1&down_fmt=csv&down_flds=all'
-  
-  # Preparing search URLs
-  URLs = paste0(Base_string_1_main, Condition_terms, Base_string_2_main)
-  URLs = as.vector(sapply(URLs, function(x) paste0(x, Treatment_terms, Base_string_3_main)))
-  
-  # Preparing base strings for checking
+  Base_string_3_main = "&type=Intr&down_count=10000&down_chunk=1&down_fmt=csv&down_flds=all"
   Base_string_1_check = "https://clinicaltrials.gov/ct2/results?cond="
   Base_string_2_check = "&intr="
   Base_string_3_check = "&type=Intr"
   
-  # Preparing helper URLs
-  URLs_check = paste0(Base_string_1_check, Condition_terms, Base_string_2_check)
-  URLs_check = as.vector(sapply(URLs_check, function(x) paste0(x, Treatment_terms, Base_string_3_check)))
+  if (!is.null(url_suffix)){
+    Base_string_3_main = paste0(Base_string_3_main, url_suffix)
+    Base_string_3_check = paste0(Base_string_3_check, url_suffix)
+  }
   
-  # Preparing reporting file
-  Reporting_file = as.vector(sapply(Condition_terms, function(x) paste0(x, "&&&", Treatment_terms)))
-  Reporting_file = data.frame(Reporting_file)
-  colnames(Reporting_file) = "Term"
-  Reporting_file$Index = NA
-  Reporting_file$URL = NA
-  Reporting_file$URL_check = NA
-  Reporting_file$Status = NA
-  Reporting_file$Trials = NA
-  Reporting_file$Intervention = NA
   
-  while (index <= length(URLs)){
+  urls = paste0(Base_string_1_main, condition_terms, Base_string_2_main)
+  urls = as.vector(sapply(urls, function(x) paste0(x, treatment_terms, Base_string_3_main)))
+  
+  urls_check = paste0(Base_string_1_check, condition_terms, Base_string_2_check)
+  urls_check = as.vector(sapply(urls_check, function(x) paste0(x, treatment_terms, Base_string_3_check)))
+  
+  reporting_file = as.vector(sapply(condition_terms, function(x) paste0(x, "&&&", treatment_terms)))
+  reporting_file = data.frame(reporting_file)
+  colnames(reporting_file) = "Term"
+  reporting_file$Index = NA
+  reporting_file$URL = NA
+  reporting_file$URL_check = NA
+  reporting_file$Status = NA
+  reporting_file$Trials = NA
+  reporting_file$Intervention = NA
+  reporting_file$Condition_searched = NA
+  
+  index = 1
+  while(index <= length(urls)){
     
-    Reporting_file$Index[index] = index
-    Reporting_file$URL[index] = URLs[index]
-    Reporting_file$URL_check[index] = URLs_check[index]
-    Reporting_file$Intervention[index] = Terms_initial[index]
+    reporting_file$Index[index] = index
+    reporting_file$URL[index] = urls[index]
+    reporting_file$URL_check[index] = urls_check[index]
+    reporting_file$Intervention[index] = terms_initial[index]
+    reporting_file$Condition_searched[index] = condition_terms_initial[index]
     
-    if (valid_url(URLs_check[index])){
+    if (valid_url(urls_check[index])){
       
-      Destination = paste0(Folder,'/',index, "___",".csv")
-      Error_flag = FALSE
+      destination = paste0(folder,"/",index, "___",".csv")
+      error_flag_ctgov = FALSE
+      skip_Flag = FALSE
+      error_counter_get_trials = 0
       
       tryCatch({
-        download.file(URLs[index],Destination)
-        Reporting_file$Status[index] = "Downloaded"
-      }, error = function(e){Error_flag <<- TRUE})
+        download.file(urls[index], destination, quiet = TRUE)
+        reporting_file$Status[index] = "Downloaded"
+      }, error = function(e){error_flag_ctgov <<- TRUE})
       
-      if (Error_flag){
-        warning(paste0(index,'___',"ERROR_DETECTED",'_at_', Sys.time()), immediate. = TRUE)
-        Sys.sleep(5)
-        download.file(URLs[index],Destination)
-        Reporting_file$Status[index] = "Downloaded"
+      while(error_flag_ctgov){
+        Sys.sleep(2**error_counter_get_trials)
+        error_counter_get_trials = error_counter_get_trials + 1
+        
+        warning(paste0('Error detected during getting trials file from   ',
+                       urls[index],
+                       '  ',
+                       Sys.time(),
+                       ' Trying to reopen link  #',
+                       error_counter_get_trials), immediate. = TRUE)
+        
+        if (error_counter_get_trials > 10){
+          
+          warning(paste0("Unable to get trials from ", urls[index]))
+          skip_Flag = TRUE
+          error_flag_ctgov = FALSE
+          
+        } else {
+          
+          tryCatch({
+            download.file(urls[index], destination, quiet = TRUE)
+            reporting_file$Status[index] = "Downloaded"
+            error_flag_ctgov <<- FALSE
+          }, error = function(e){error_flag_ctgov <<- TRUE})
+          
+        }
+        
+      }
+      
+      if (skip_Flag){
+        suppressWarnings(rm(list = c("error_flag_ctgov", "error_counter_get_trials", "skip_Flag")))
+        reporting_file$Status[index] = "Link failed"
+        reporting_file$Trials[index] = 0
       }
       
     } else {
-      Reporting_file$Status[index] = "No trials/Invalid"
-      Reporting_file$Trials[index] = 0
+      suppressWarnings(rm(list = c("error_flag_ctgov", "error_counter_get_trials", "skip_Flag")))
+      reporting_file$Status[index] = "No trials/Invalid"
+      reporting_file$Trials[index] = 0
     }
-    percent = round((index/length(URLs))*100,2)
-    writeLines(paste0(index, '___', percent, '_%_complete', '_at_', Sys.time()))
+    
+    percent = round((index/length(urls))*100, 4)
+    writeLines(paste0(index,'   ', percent,' % complete at ', Sys.time()))
     index = index + 1
-    Sys.sleep(0.5)
+    Sys.sleep(1)
+    
   }
   
-  Files = list.files(Folder)
-  if (length(Files) < 1){
-    Reporting_file$Trials = 0
-    write.csv(Reporting_file, paste0(Folder, '/', "Reporting_file", ".csv"))
-    return('0 trials found')
+  files = list.files(folder)
+  if (length(files)<1){
+    reporting_file$Trials = 0
+    write.csv(reporting_file, paste0(folder, '/', "reporting_file", ".csv"))
+    return("0 trials found")
   }
   
-  Paths = paste0(Folder, '/', Files)
+  files = files[files != "reporting_file.csv"]
+  if (length(files)<1){
+    reporting_file$Trials = 0
+    write.csv(reporting_file, paste0(folder, '/', "reporting_file", ".csv"))
+    return("0 trials found")
+  }
   
-  # Preparing the output and reporting files
-  Files_list = list()
-  for (i in 1:length(Paths)){
-    Df = read.csv(Paths[i],header = TRUE, encoding = "UTF-8")
-    idx = unlist(stri_split_fixed(Paths[i], pattern = "/"))
+  paths = paste0(folder,"/", files)
+  
+  files_list = list()
+  for (i in 1:length(paths)){
+    df = read.csv(paths[i], header = TRUE, encoding = "UTF-8")
+    idx = unlist(stringi::stri_split_fixed(paths[i], pattern = "/"))
     idx = idx[length(idx)]
-    idx = unlist(stri_split_fixed(idx, pattern = "___"))
+    idx = unlist(stringi::stri_split_fixed(idx, pattern = "___"))
     idx = idx[1]
-    Df$Search_term = Reporting_file[Reporting_file$Index == idx, "Term"]
-    Reporting_file[Reporting_file$Index == idx, "Trials"] = nrow(Df)
-    write.csv(Df, Paths[i])
-    Files_list[[i]] = Df
+    df$Search_term = reporting_file[reporting_file$Index == idx, "Term"]
+    df$Requested_inter = reporting_file[reporting_file$Index == idx, "Intervention"]
+    df$Requested_cond = reporting_file[reporting_file$Index == idx, "Condition_searched"]
+    reporting_file[reporting_file$Index == idx, "Trials"] = nrow(df)
+    write.csv(df, paths[i])
+    files_list[[i]] = df
   }
-  write.csv(Reporting_file, paste0(Folder, '/', "Reporting_file", ".csv"))
-  Output_data = do.call(rbind, Files_list)
-  return(Output_data)
+  
+  write.csv(reporting_file, paste0(folder, "/", "reporting_file", ".csv"))
+  output_data = do.call(rbind, files_list)
+  return(output_data)
 }
-
 # A function to map SNPs from GTEx IDs to dbSNP
 
 map_SNPs_GTEx_dbSNP_b38 = function(PRF_SNP_ID_GTEx, 
@@ -955,6 +1015,21 @@ make_Venn_digram_list(named_list = Venn_overlaping_genes_3_layers, palette = 5, 
 make_Venn_digram_list(named_list = Venn_overlaping_genes_3_layers_2, palette = 6, plot_full_path = "Venn_overlaping_genes_3_layers_full_GWAS.pdf")
 
 # Making graphs
+
+# Saving intersect info
+Intersect_ALL = Reduce(intersect, list(GWAS_CAT_Depress_specific_SNPs_153_mapped__genes,
+                                       Genes_matching_CpGs,
+                                       Genes_matching_dir_expression)) # 3 genes "FOXP1" "VPS41" "AKTIP"
+Intersect_GWAS_Methyl = intersect(GWAS_CAT_Depress_specific_SNPs_153_mapped__genes, Genes_matching_CpGs) 
+Intersect_GWAS_Methyl = Intersect_GWAS_Methyl[Intersect_GWAS_Methyl %!in% Intersect_ALL] # 84 genes
+Intersect_GWAS_Transcr = intersect(GWAS_CAT_Depress_specific_SNPs_153_mapped__genes, Genes_matching_dir_expression) 
+Intersect_GWAS_Transcr = Intersect_GWAS_Transcr[Intersect_GWAS_Transcr %!in% Intersect_ALL] # 19 genes
+Intersect_Methyl_Transcr = intersect(Genes_matching_CpGs, Genes_matching_dir_expression) 
+Intersect_Methyl_Transcr = Intersect_Methyl_Transcr[Intersect_Methyl_Transcr %!in% Intersect_ALL] # 38 genes
+write(Intersect_GWAS_Methyl, "Intersect_GWAS_Methyl.txt")
+write(Intersect_GWAS_Transcr, "Intersect_GWAS_Transcr.txt")
+write(Intersect_Methyl_Transcr, "Intersect_Methyl_Transcr.txt")
+
 GWAS_DS = data_frame(Study = "GWAS all Depr. genes", Gene =  GWAS_CAT_Depress_specific_SNPs_153_mapped__genes)
 Meth_DS = data_frame(Study = "DNA methylation (blood)", Gene =  Genes_matching_CpGs)
 Trans_DS = data_frame(Study = "Transcriptome (blood)", Gene =  Genes_matching_dir_expression)
@@ -965,12 +1040,14 @@ network_data$nodes$group = sapply(network_data$nodes$id, function(x){
   if (x %in% Graph_DS$Study){
     return("Study")
   }
-  if (x %in% intersect(GWAS_CAT_Depress_specific_SNPs_153_mapped__genes, Genes_matching_CpGs)){
+  if (x %in% Intersect_GWAS_Methyl){
     return("Intersect GWAS-Methyl")
-  } else if (x %in% intersect(GWAS_CAT_Depress_specific_SNPs_153_mapped__genes, Genes_matching_dir_expression)){
+  } else if (x %in% Intersect_GWAS_Transcr){
     return("Intersect GWAS-Transcriptome")
-  } else if (x %in% intersect(Genes_matching_CpGs, Genes_matching_dir_expression)){
+  } else if (x %in% Intersect_Methyl_Transcr){
     return("Intersect Methyl-Transcriptome")
+  } else if (x %in% Intersect_ALL){
+    return("Triple intersect")
   } else {
     return("Normal gene")
   }
@@ -979,7 +1056,8 @@ net = visNetwork(nodes = network_data$nodes, edges = network_data$edges, height 
   visIgraphLayout(layout = "layout_with_fr", physics = FALSE, randomSeed = 190) %>%
   visGroups(groupname = "Intersect GWAS-Methyl", color = list("background" = "skyblue", border = "black")) %>% 
   visGroups(groupname = "Intersect GWAS-Transcriptome", color = list("background" = "green", border = "black")) %>% 
-  visGroups(groupname = "Intersect Methyl-Transcriptome", color = list("background" = "red", border = "black")) %>% 
+  visGroups(groupname = "Intersect Methyl-Transcriptome", color = list("background" = "red", border = "black")) %>%
+  visGroups(groupname = "Triple intersect", color = list("background" = "yellow", border = "black")) %>% 
   visGroups(groupname = "Normal gene", color = list("background" = "#FBCEB1", border = "black")) %>% 
   visGroups(groupname = "Study", color = list("background" = "orange", border = "black")) %>% 
   visNodes(size = 10, borderWidth = 0.3) %>%
@@ -988,19 +1066,16 @@ net = visNetwork(nodes = network_data$nodes, edges = network_data$edges, height 
   visOptions(highlightNearest = list(enabled = T, hover = T), 
              nodesIdSelection = F)
 visSave(net, file = "Findings_3_layers_net.html")
+Sys.setenv("OPENSSL_CONF"="/dev/null")
 webshot("Findings_3_layers_net.html", "Findings_3_layers_net.png", vwidth = 5000, vheight = 5000, zoom = 1)
 
-# Saving intersect info
-Intersect_GWAS_Methyl = intersect(GWAS_CAT_Depress_specific_SNPs_153_mapped__genes, Genes_matching_CpGs) # 87 genes
-Intersect_GWAS_Transcr = intersect(GWAS_CAT_Depress_specific_SNPs_153_mapped__genes, Genes_matching_dir_expression) # 7 genes
-Intersect_Methyl_Transcr = intersect(Genes_matching_CpGs, Genes_matching_dir_expression) # 15 genes
-write(Intersect_GWAS_Methyl, "Intersect_GWAS_Methyl.txt")
-write(Intersect_GWAS_Transcr, "Intersect_GWAS_Transcr.txt")
-write(Intersect_Methyl_Transcr, "Intersect_Methyl_Transcr.txt")
-
 # Small network for nodes in overlaps
-int_list = c(Intersect_GWAS_Methyl, Intersect_GWAS_Transcr, Intersect_Methyl_Transcr)
+int_list = c(Intersect_GWAS_Methyl, Intersect_GWAS_Transcr, Intersect_Methyl_Transcr, Intersect_ALL)
 int_list = unique(int_list)
+GWAS_DS = data_frame(Study = "GWAS all Depr. genes", Gene =  GWAS_CAT_Depress_specific_SNPs_153_mapped__genes)
+Meth_DS = data_frame(Study = "DNA methylation (blood)", Gene =  Genes_matching_CpGs)
+Trans_DS = data_frame(Study = "Transcriptome (blood)", Gene =  Genes_matching_dir_expression)
+Graph_DS = rbind(GWAS_DS, Meth_DS, Trans_DS)
 Graph_DS = Graph_DS[Graph_DS$Gene %in% int_list,]
 network_data = graph_from_data_frame(d = Graph_DS[,1:2], directed = TRUE)
 network_data = toVisNetworkData(network_data)
@@ -1014,6 +1089,8 @@ network_data$nodes$group = sapply(network_data$nodes$id, function(x){
     return("Intersect GWAS-Transcriptome")
   } else if (x %in% Intersect_Methyl_Transcr){
     return("Intersect Methyl-Transcriptome")
+  } else if (x %in% Intersect_ALL){
+    return("Triple intersect")
   } else {
     return("Normal gene")
   }
@@ -1024,6 +1101,7 @@ net = visNetwork(nodes = network_data$nodes, edges = network_data$edges, height 
   visGroups(groupname = "Intersect GWAS-Methyl", color = list("background" = "skyblue", border = "black")) %>% 
   visGroups(groupname = "Intersect GWAS-Transcriptome", color = list("background" = "green", border = "black")) %>% 
   visGroups(groupname = "Intersect Methyl-Transcriptome", color = list("background" = "red", border = "black")) %>% 
+  visGroups(groupname = "Triple intersect", color = list("background" = "yellow", border = "black")) %>% 
   visGroups(groupname = "Normal gene", color = list("background" = "#FBCEB1", border = "black")) %>% 
   visGroups(groupname = "Study", color = list("background" = "orange", border = "black")) %>% 
   visNodes(size = 10, borderWidth = 0.3, font = list(size = 25)) %>%
@@ -1032,6 +1110,7 @@ net = visNetwork(nodes = network_data$nodes, edges = network_data$edges, height 
   visOptions(highlightNearest = list(enabled = T, hover = T), 
              nodesIdSelection = F)
 visSave(net, file = "Findings_3_layers_net_small.html")
+Sys.setenv("OPENSSL_CONF"="/dev/null")
 webshot("Findings_3_layers_net_small.html", "Findings_3_layers_net_small.png", vwidth = 3000, vheight = 3000)
 
 
@@ -1072,8 +1151,8 @@ openxlsx::write.xlsx(total_list, "genome clustering regresssion_upd.xlsx")
 
 # Spearman correlations
 cor.test(Combined_Chrom_Df_fixed$GWAS_Ident_SNPs_count, Combined_Chrom_Df_fixed$Transcr_identified_genes_count, method = "spearman") # p-value = 0.6156, -0.009354482 
-cor.test(Combined_Chrom_Df_fixed$Transcr_Cross_signif_genes_similar_dir_count, Combined_Chrom_Df_fixed$Transcr_identified_transcripts_count, method = "spearman") # 0.2993633 
-cor.test(Combined_Chrom_Df_fixed$Meth_Cross_valid_CpGs, Combined_Chrom_Df_fixed$Meth_Illum_Probes, method = "spearman") # 0.5925004
+cor.test(Combined_Chrom_Df_fixed$Transcr_Cross_signif_genes_similar_dir_count, Combined_Chrom_Df_fixed$Transcr_identified_transcripts_count, method = "spearman") # 0.4430285  p-value < 2.2e-16
+cor.test(Combined_Chrom_Df_fixed$Meth_Cross_valid_CpGs, Combined_Chrom_Df_fixed$Meth_Illum_Probes, method = "spearman") # 0.5925004 p-value < 2.2e-16
 
 
 ################### Enrichment analysis ###################
@@ -1114,6 +1193,7 @@ ENTREZ_Overlapping_genes_gwas_methyl = ENTREZ_genes_Homo_Sapiens[sapply(ENTREZ_g
 all(Overlapping_genes_gwas_methyl %in% ENTREZ_Overlapping_genes_gwas_methyl$Symbol) # All genes are mapped
 ENTREZ_Illumina_450K = smart_fread("DNA_methylation/ENTREZ_Illumina_450K_full.csv") # Replace with another path if needed
 ENTREZ_Illumina_450K_ids = unique(ENTREZ_Illumina_450K$GeneID)
+debug(run_enrichment_GO_KEGG_gene_set)
 ENRICHMENT_Overlapping_genes_gwas_methyl = run_enrichment_GO_KEGG_gene_set(genes = ENTREZ_Overlapping_genes_gwas_methyl$GeneID,
                                                                            universe = ENTREZ_Illumina_450K_ids,
                                                                            categories_to_show = 30,
@@ -1247,7 +1327,7 @@ Chrom_heatmap_plot =  Combined_Chrom_Df[,c("GWAS_Chrom",
                                            "GWAS_End",
                                            "Meth_Signif_CpGs_Ratio_cross_valid_matching_dir")]
 colnames(Chrom_heatmap_plot) = c("Chr", "Start", "End", "Value")
-ideogram(karyotype = Chromosome_map_Rideogram, overlaid = Chrom_heatmap_plot, colorset1 = c("#FFFFFF", "#191970"), output = "CpG_match_heatmap.svg") # dark-blue
+ideogram(karyotype = Chromosome_map_Rideogram, overlaid = Chrom_heatmap_plot, colorset1 = c("#FFFFFF", "#FF5733"), output = "CpG_match_heatmap.svg") # dark-blue
 convertSVG("CpG_match_heatmap.svg", device = "png", file = "CpG_match_heatmap.png")
 
 # Cross-valid genes (matching dir.) vs ref. array genes
@@ -1263,16 +1343,18 @@ Chrom_heatmap_plot =  Combined_Chrom_Df[,c("GWAS_Chrom",
                                            "GWAS_End",
                                            "Transcr_Signif_genes_cross_valid_matching_dir_Ratio")]
 colnames(Chrom_heatmap_plot) = c("Chr", "Start", "End", "Value")
-ideogram(karyotype = Chromosome_map_Rideogram, overlaid = Chrom_heatmap_plot, colorset1 = c("#FFFFFF", "#9B26B6"), output = "Transcr_match_heatmap.svg")
+ideogram(karyotype = Chromosome_map_Rideogram, overlaid = Chrom_heatmap_plot, colorset1 = c("#FFFFFF", "#097969"), output = "Transcr_match_heatmap.svg")
 convertSVG("Transcr_match_heatmap.svg", device = "png", file = "Transcr_match_heatmap.png")
 
+
+# Count heatmaps for the main text
 # Transcriptome heatmap counts
 Chrom_heatmap_plot =  Combined_Chrom_Df[,c("GWAS_Chrom",
                                            "GWAS_Start",
                                            "GWAS_End",
                                            "Transcr_Cross_signif_genes_similar_dir_count")]
 colnames(Chrom_heatmap_plot) = c("Chr", "Start", "End", "Value")
-ideogram(karyotype = Chromosome_map_Rideogram, overlaid = Chrom_heatmap_plot, colorset1 = c("#FFFFFF", "#097969"), output = "Transcr_match_count_heatmap.svg")
+ideogram(karyotype = Chromosome_map_Rideogram, overlaid = Chrom_heatmap_plot, colorset1 = c("#FFFFFF", "#9B26B6"), output = "Transcr_match_count_heatmap.svg")
 convertSVG("Transcr_match_count_heatmap.svg", device = "png", file = "Transcr_match_count_heatmap.png")
 
 # SNP heatmap counts
@@ -1290,7 +1372,7 @@ Chrom_heatmap_plot =  Combined_Chrom_Df[,c("GWAS_Chrom",
                                            "GWAS_End",
                                            "Meth_Cross_valid_CpGs_matching_dir")]
 colnames(Chrom_heatmap_plot) = c("Chr", "Start", "End", "Value")
-ideogram(karyotype = Chromosome_map_Rideogram, overlaid = Chrom_heatmap_plot, colorset1 = c("#FFFFFF", "#FFA500"), output = "CpG_match_count_heatmap.svg")
+ideogram(karyotype = Chromosome_map_Rideogram, overlaid = Chrom_heatmap_plot, colorset1 = c("#FFFFFF", "#191970"), output = "CpG_match_count_heatmap.svg")
 convertSVG("CpG_match_count_heatmap.svg", device = "png", file = "CpG_match_count_heatmap.png")
 
 # Gene reference heatmap
@@ -1310,7 +1392,7 @@ Combined_Chrom_Df$Non_zero_3  = mapply(function(x,y,z){
     return(1)
   }
   return(0)
-}, Combined_Chrom_Df$Transcr_Signif_genes_cross_valid_matching_dir_Ratio, Combined_Chrom_Df$GWAS_Ident_SNPs_count, Combined_Chrom_Df$Meth_Cross_valid_CpGs_matching_dir)
+}, Combined_Chrom_Df$Transcr_Cross_signif_genes_similar_dir_count, Combined_Chrom_Df$GWAS_Ident_SNPs_count, Combined_Chrom_Df$Meth_Cross_valid_CpGs_matching_dir)
 Chrom_heatmap_plot =  Combined_Chrom_Df[,c("GWAS_Chrom",
                                            "GWAS_Start",
                                            "GWAS_End",
@@ -1324,14 +1406,6 @@ write.csv(Combined_Chrom_Df, "Combined_Chrom_Df_final.csv")
 
 
 ################### IUPHAR and Clinical trial analysis ###################
-# Getting Drug Datasets
-# NIH Drug Information portal
-NIH_synonyms_19_Sep_2022 = smart_fread("/home/aleksandr/Desktop/WORK/Main_dev/NIH_files_synonyms_Sep_19_2022.csv") # Replace with another path if needed
-NIH_synonyms_19_Sep_2022 = as.data.frame(apply(NIH_synonyms_19_Sep_2022, 2, toupper))
-NIH_categories_19_Sep_2022 = smart_fread("/home/aleksandr/Desktop/WORK/Main_dev/NIH_files_categories_Sep_19_2022.csv") # Replace with another path if needed
-NIH_categories_19_Sep_2022 = as.data.frame(apply(NIH_categories_19_Sep_2022, 2, toupper))
-NIH_categories_antidepress = NIH_categories_19_Sep_2022[stri_detect_fixed(NIH_categories_19_Sep_2022$Categories, pattern = "ANTIDEPRESS"),]
-NIH_categories_antidepress$Approvals = NIH_categories_antidepress$Drug %in% IUPHAR_22_Sep_2022_curated$Ligand
 
 # IUPHAR
 IUPHAR_22_Sep_2022 = smart_fread("approved_drug_primary_target_interactions.csv") # Replace with another path if needed
@@ -1344,19 +1418,45 @@ IUPHAR_22_Sep_2022$INN = toupper(IUPHAR_22_Sep_2022$INN)
 IUPHAR_22_Sep_2022_curated = read.xlsx("IUPHAR_22_Sep_2022_curated.xlsx") # Replace with another path if needed
 IUPHAR_22_Sep_2022_curated$Ligand = toupper(IUPHAR_22_Sep_2022_curated$Ligand)
 
+# ChemIDplus Subset Data
+# Data comes from parsed XML from https://www.nlm.nih.gov/databases/download/chemidplus.html and https://ftp.nlm.nih.gov/projects/chemidlease
+chem_ID_synonyms = smart_fread("/home/aleksandr/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omics_multi_cohort/ChemIDPlusData/synonyms_chemIDplus.txt")
+chem_ID_synonyms = as.data.frame(apply(chem_ID_synonyms, 2, toupper))
+chem_ID_categories = smart_fread("/home/aleksandr/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omics_multi_cohort/ChemIDPlusData/classes_chemIDplus.txt")
+chem_ID_categories = as.data.frame(apply(chem_ID_categories, 2, toupper))
+chem_ID_categories_antidepress = chem_ID_categories[stri_detect_fixed(chem_ID_categories$Class, pattern = "ANTIDEPRESS"),]
+
+chem_ID_categories_antidepress$Approvals = sapply(chem_ID_categories_antidepress$Molecule, function(x){
+  if (x %in% IUPHAR_22_Sep_2022_curated$Ligand) {
+    return(TRUE)
+  }
+  synonyms = chem_ID_synonyms[chem_ID_synonyms$Molecule == x, "Synonym"]
+  
+  if (length(synonyms) < 1){
+    return(FALSE)
+  }
+  
+  return(any(synonyms %in% IUPHAR_22_Sep_2022_curated$Ligand))
+})
+
 # Preparing lists
+Overlapping_genes_triple = Intersect_ALL
 GWAS_List = GWAS_CAT_Depress_specific_SNPs_153_mapped__genes[GWAS_CAT_Depress_specific_SNPs_153_mapped__genes %!in% c(Overlapping_genes_gwas_methyl, 
                                                                                                                       Overlapping_genes_methyl_transcript, 
-                                                                                                                      Overlapping_genes_gwas_transcript)]
+                                                                                                                      Overlapping_genes_gwas_transcript,
+                                                                                                                      Overlapping_genes_triple)]
 Methyl_List = Genes_matching_CpGs[Genes_matching_CpGs %!in% c(Overlapping_genes_gwas_methyl, 
                                                               Overlapping_genes_methyl_transcript, 
-                                                              Overlapping_genes_gwas_transcript)] 
+                                                              Overlapping_genes_gwas_transcript,
+                                                              Overlapping_genes_triple)] 
 Transcript_List = Genes_matching_dir_expression[Genes_matching_dir_expression %!in% c(Overlapping_genes_gwas_methyl,
                                                                                       Overlapping_genes_methyl_transcript, 
-                                                                                      Overlapping_genes_gwas_transcript)] 
+                                                                                      Overlapping_genes_gwas_transcript,
+                                                                                      Overlapping_genes_triple)] 
 Protein_Lists = list(Overlapping_genes_gwas_methyl,
                      Overlapping_genes_methyl_transcript,
                      Overlapping_genes_gwas_transcript,
+                     Overlapping_genes_triple,
                      GWAS_List,
                      Methyl_List,
                      Transcript_List)
@@ -1364,6 +1464,7 @@ names(Protein_Lists) = c(
   "Overlap GWAS-Methylation",
   "Overlap Methylation-Transcriptome",
   "Overlap GWAS-Transcriptome",
+  "Triple intersect",
   "GWAS",
   "Methylation",
   "Transcriptome"
@@ -1387,12 +1488,12 @@ for (i in 1:length(Protein_Lists)){
   
   # Mapping stats
   PRF_Mapped_Drugs = sapply(unique(PRF_Drugs_All), function(x){
-    if (x %in% NIH_synonyms_19_Sep_2022$Drug){
+    if (x %in% chem_ID_synonyms$Molecule){
       return(x)
     }
-    if (x %in% NIH_synonyms_19_Sep_2022$Synonyms){
-      x = NIH_synonyms_19_Sep_2022[NIH_synonyms_19_Sep_2022$Synonyms == x,]
-      x = x$Drug[1]
+    if (x %in% chem_ID_synonyms$Synonym){
+      x = chem_ID_synonyms[chem_ID_synonyms$Synonym == x,]
+      x = x$Molecule[1]
       return(x)
     }
     return(NA)
@@ -1403,9 +1504,9 @@ for (i in 1:length(Protein_Lists)){
   PRF_Non_Mapped_drugs_names = names(PRF_Non_Mapped_drugs_names)
   PRF_Non_Mapped_drugs_names = paste0(PRF_Non_Mapped_drugs_names, collapse = ";")
   PRF_Mapped_Drugs = PRF_Mapped_Drugs[!is.na(PRF_Mapped_Drugs)]
-  PRF_Mapped_Drugs_NIH_Categories = NIH_categories_19_Sep_2022[NIH_categories_19_Sep_2022$Drug %in% PRF_Mapped_Drugs,]
-  PRF_Mapped_Drugs_NIH_Categories_ANTIDEPRESS = PRF_Mapped_Drugs_NIH_Categories[stri_detect_fixed(PRF_Mapped_Drugs_NIH_Categories$Categories, pattern = "ANTIDEPRESS"),]
-  PRF_Drugs_Antidepress = unique(PRF_Mapped_Drugs_NIH_Categories_ANTIDEPRESS$Drug)
+  PRF_Mapped_Drugs_CID_Categories = chem_ID_categories[chem_ID_categories$Molecule %in% PRF_Mapped_Drugs,]
+  PRF_Mapped_Drugs_CID_Categories_ANTIDEPRESS = PRF_Mapped_Drugs_CID_Categories[stri_detect_fixed(PRF_Mapped_Drugs_CID_Categories$Class, pattern = "ANTIDEPRESS"),]
+  PRF_Drugs_Antidepress = unique(PRF_Mapped_Drugs_CID_Categories_ANTIDEPRESS$Molecule)
   PRF_Drugs_Antidepress_Count = length(PRF_Drugs_Antidepress)
   PRF_Drugs_Antidepress_df = PRF_Drugs_All_df[PRF_Drugs_All_df$Ligand %in% names(PRF_Mapped_drugs_names_init[PRF_Mapped_drugs_names_init %in% PRF_Drugs_Antidepress]),]
   PRF_Targets_Antidepress = unique(PRF_Drugs_Antidepress_df$HGNC.symbol)
@@ -1450,8 +1551,8 @@ colnames(Proteins_Drugs_Stats) = c("Category",
                                      "Targets_All",
                                      "Targets_All_Count",
                                      "Targets_All_Percent",
-                                     "NIH_Mapped_drugs_names",
-                                     "NIH_Non_Mapped_drugs_names",
+                                     "ChemID_plus_Mapped_drugs_names",
+                                     "ChemID_plus_Non_Mapped_drugs_names",
                                      "Drugs_Antidepress_Count",
                                      "Targets_Antidepress_Count",
                                      "Targets_Antidepress_Percent",
@@ -1480,9 +1581,9 @@ for (i in 1:nrow(Proteins_Drugs_Stats)){
     PRF_curr_drugs = PRF_df$Drugs_All
     PRF_curr_drugs = unlist(stri_split_fixed(PRF_curr_drugs, pattern = ";"))
     PRF_curr_drugs = unique(PRF_curr_drugs)
-    PRF_curr_screen = clinical_trial_downloader_two_terms(Condition_terms = "depression",
-                                                          Treatment_terms = PRF_curr_drugs,
-                                                          Folder = Folders[i])
+    PRF_curr_screen = clinical_trial_downloader_two_terms(condition_terms = "depression",
+                                                          treatment_terms = PRF_curr_drugs,
+                                                          folder = Folders[i])
     if (is.character(PRF_curr_screen)){
       Proteins_Drugs_Stats$Drugs_in_depr_trials[i] = 0
       print(Proteins_Drugs_Stats$Drugs_in_depr_trials[i])
@@ -1510,7 +1611,7 @@ for (i in 1:nrow(Proteins_Drugs_Stats_Full)){
     PRF_curr_drugs = unlist(stri_split_fixed(PRF_curr_drugs, pattern = ";"))
     PRF_curr_drugs = unique(PRF_curr_drugs)
     
-    PRF_report_file = smart_fread(paste0(Folders[i], "/Reporting_file.csv"))
+    PRF_report_file = smart_fread(paste0(Folders[i], "/reporting_file.csv"))
     PRF_Trial_drugs = PRF_curr_drugs[PRF_report_file$Trials != 0]
     Proteins_Drugs_Stats_Full$Drugs_in_depr_trials_names[i] = paste0(PRF_Trial_drugs, collapse = ";")
     PRF_trial_targets = IUPHAR_22_Sep_2022_curated[IUPHAR_22_Sep_2022_curated$Ligand %in% PRF_Trial_drugs, "HGNC.symbol"]
@@ -1530,7 +1631,7 @@ Proteins_Drugs_Stats_narrow = Proteins_Drugs_Stats_Full[,c("Category",
                                                              "Targets_in_depr_trials_count")]
 Proteins_Drugs_Stats_narrow = gather(Proteins_Drugs_Stats_narrow, Counts, Numbers, c(2:7))
 Proteins_Drugs_Stats_narrow$Counts = factor(Proteins_Drugs_Stats_narrow$Counts, levels = unique(Proteins_Drugs_Stats_narrow$Counts),
-                                            labels = c("Drugs (all)", "Targets (all)", "Antidepressant drugs NIH", "Targets (antidepress. NIH)",
+                                            labels = c("Drugs (all)", "Targets (all)", "Antidepressant drugs chemID", "Targets (antidepress. chemID)",
                                                        "Drugs depr. trials", "Targets depr. trials"))
 Proteins_Drugs_Stats_narrow$Category = factor(Proteins_Drugs_Stats_narrow$Category)
 
@@ -1643,9 +1744,9 @@ for (i in 1:nrow(Proteins_Drugs_Stats_Drug_Bank)){
     PRF_curr_drugs = PRF_df$matched_drugs_known_action_synonyms
     PRF_curr_drugs = unlist(stri_split_fixed(PRF_curr_drugs, pattern = ";"))
     PRF_curr_drugs = unique(PRF_curr_drugs)
-    PRF_curr_screen = clinical_trial_downloader_two_terms(Condition_terms = "depression",
-                                                          Treatment_terms = PRF_curr_drugs,
-                                                          Folder = Folders[i])
+    PRF_curr_screen = clinical_trial_downloader_two_terms(condition_terms = "depression",
+                                                          treatment_terms = PRF_curr_drugs,
+                                                          folder = Folders[i])
   }
 }
 
@@ -1686,7 +1787,7 @@ for (i in 1:nrow(Proteins_Drugs_Stats_Drug_Bank)){
     } else {
       
       # Some drugs matched; need to iterate through drugs
-      PRF_report_file = paste0(PRF_curr_folder, "/Reporting_file.csv")
+      PRF_report_file = paste0(PRF_curr_folder, "/reporting_file.csv")
       PRF_report_file = read.csv(PRF_report_file, header = TRUE, encoding = "UTF-8")
       
       PRF_observed_drugs = vector()
@@ -1779,6 +1880,155 @@ rm(list = ls()[stri_detect_fixed(ls(), pattern = "PRF_")])
 Full_drug_stats = list("IUPHAR" = Proteins_Drugs_Stats_Full, "DrugBank" = Proteins_Drugs_Stats_Drug_Bank)
 openxlsx::write.xlsx(Full_drug_stats, "Full_drug_stats.xlsx")
 
+
+################### DrugBank drug enrichment analysis ###################
+DrugBank_drugs_known_target_lists = Proteins_Drugs_Stats_Drug_Bank[, c(
+  "category",
+  "matched_drugs_known_action",
+  "matched_drugs_known_action_synonyms",
+  "matched_drugs_known_action_count",
+  "drugs_in_depr_trials_names"
+)]
+
+
+DrugBank_drugs_known_target_lists$chemID_names = NA
+DrugBank_drugs_known_target_lists$chemID_names_count = NA
+
+# Mapping loop
+for (i in 1:nrow(DrugBank_drugs_known_target_lists)){
+  PRF_drugs = DrugBank_drugs_known_target_lists$matched_drugs_known_action[i]
+  PRF_drugs = unlist(stri_split_fixed(PRF_drugs, pattern = ";"))
+  PRF_drugs = PRF_drugs[PRF_drugs!=""]
+  PRF_drugs = toupper(PRF_drugs)
+  
+  # Mapping to chemID names
+  PRF_Mapped_Drugs = sapply(PRF_drugs, function(x){
+    if (x %in% chem_ID_synonyms$Molecule){
+      return(x)
+    }
+    if (x %in% chem_ID_synonyms$Synonym){
+      x = chem_ID_synonyms[chem_ID_synonyms$Synonym == x,]
+      x = x$Molecule[1]
+      return(x)
+    }
+    return(NA)
+  })
+  PRF_Mapped_Drugs = PRF_Mapped_Drugs[!is.na(PRF_Mapped_Drugs)]
+  names(PRF_Mapped_Drugs) = NULL
+  PRF_Mapped_Drugs = unique(PRF_Mapped_Drugs)
+  PRF_Mapped_Drugs_cd = paste0(PRF_Mapped_Drugs, collapse = ";")
+  DrugBank_drugs_known_target_lists$chemID_names[i] = PRF_Mapped_Drugs_cd
+  DrugBank_drugs_known_target_lists$chemID_names_count[i] = length(PRF_Mapped_Drugs)
+}
+DrugBank_drugs_known_target_lists$Mapping_fraction = DrugBank_drugs_known_target_lists$chemID_names_count / DrugBank_drugs_known_target_lists$matched_drugs_known_action_count
+
+# Obtaining known action drug bank universe
+Drug_Bank_Known_Action_universe = Drug_bank_merged_curated$name.x
+Drug_Bank_Known_Action_universe = toupper(Drug_Bank_Known_Action_universe)
+Drug_Bank_Known_Action_universe = unique(Drug_Bank_Known_Action_universe)
+Drug_Bank_Known_Action_universe_chemID = sapply(Drug_Bank_Known_Action_universe, function(x){
+  if (x %in% chem_ID_synonyms$Molecule){
+    return(x)
+  }
+  if (x %in% chem_ID_synonyms$Synonym){
+    x = chem_ID_synonyms[chem_ID_synonyms$Synonym == x,]
+    x = x$Molecule[1]
+    return(x)
+  }
+  return(NA)
+})
+Drug_Bank_Known_Action_universe_chemID = Drug_Bank_Known_Action_universe_chemID[!is.na(Drug_Bank_Known_Action_universe_chemID)]
+Drug_Bank_Known_Action_universe_classes = chem_ID_categories[chem_ID_categories$Molecule %in% Drug_Bank_Known_Action_universe_chemID,]
+Drug_Bank_Known_Action_universe_classes_MESH = Drug_Bank_Known_Action_universe_classes[stri_detect_fixed(Drug_Bank_Known_Action_universe_classes$Class_source, "MESH"),]
+Drug_Bank_Known_Action_universe_classes_MESH = Drug_Bank_Known_Action_universe_classes_MESH[, c("Class", "Molecule")]
+
+# Performing enrichments for located drug lists
+dir.create("Drug_enrichments")
+folders_drug_enrich = paste0("Drug_enrichments/", DrugBank_drugs_known_target_lists$category)
+
+for (i in 1:nrow(DrugBank_drugs_known_target_lists)){
+  print(i)
+  # Making dir 
+  dir.create(folders_drug_enrich[i])
+  
+  # Extracting drugs
+  PRF_drugs = DrugBank_drugs_known_target_lists$chemID_names[i]
+  PRF_drugs = unlist(stri_split_fixed(PRF_drugs, pattern = ";"))
+  PRF_drugs = PRF_drugs[PRF_drugs!=""]
+  
+  if (length(PRF_drugs) < 1){
+    next
+  }
+  
+  # Performing enrichment
+  PRF_drug_enrichment = enricher(gene = PRF_drugs, 
+                                 universe = Drug_Bank_Known_Action_universe_classes_MESH$Molecule,
+                                 TERM2GENE = Drug_Bank_Known_Action_universe_classes_MESH,
+                                 minGSSize = 5, 
+                                 maxGSSize = 100)
+  PRF_file_name_xlsx = paste0(folders_drug_enrich[i], "/", DrugBank_drugs_known_target_lists$category[i], "_drug_enrich_result.xlsx")
+  PRF_erich_df = PRF_drug_enrichment@result
+  PRF_erich_df = cbind("Category" = DrugBank_drugs_known_target_lists$category[i], PRF_erich_df)
+  colnames(PRF_erich_df) = c("Category",
+                             "ID",
+                             "Description",
+                             "ClassRatio",
+                             "BgRatio",
+                             "pvalue" ,
+                             "p.adjust",
+                             "qvalue",
+                             "DrugName",
+                             "Count")
+  openxlsx::write.xlsx(x = PRF_erich_df, file = PRF_file_name_xlsx, overwrite = TRUE)
+  
+  if (nrow(summary(PRF_drug_enrichment)) < 1){
+    writeLines(paste0(DrugBank_drugs_known_target_lists$category[i], " has NO significant results"))
+    next
+  }
+  
+  # Making figures
+  PRF_file_name = paste0(folders_drug_enrich[i], "/", DrugBank_drugs_known_target_lists$category[i], "_drug_enrich_plot")
+  
+  # Barplots
+  pdf(paste0(PRF_file_name, "_bar.pdf")
+      , width = 10, height = 10)
+  print(barplot(PRF_drug_enrichment, showCategory = 10, font.size = 10))
+  dev.off()
+  
+  pdf(paste0(PRF_file_name, "_bar_full.pdf")
+      , width = 10, height = 10*nrow(summary(PRF_drug_enrichment))/10)
+  print(barplot(PRF_drug_enrichment, showCategory = nrow(summary(PRF_drug_enrichment)), font.size = 10))
+  dev.off()
+  
+  # Graph plots
+  pdf(paste0(PRF_file_name, "_class_conc.pdf")
+      , width = 21, height = 11)
+  print(cnetplot(PRF_drug_enrichment, circular = FALSE,  colorEdge = TRUE, color_category='firebrick', color_gene='steelblue', layout = "kk",
+                 showCategory = 10, cex_gene = 0.7, cex_label_gene = 0.7, shadowtext = "gene", max.overlaps = 1000, force = 3, force_pull = 0.5, max.time = 2))
+  dev.off()
+}
+rm(list = ls()[stri_detect_fixed(ls(), pattern = "PRF_")])
+
+# Making the combined drug enrichment file
+Drug_Enrich_reports = list()
+
+for (i in 1:length(folders_drug_enrich)){
+  PRF_files = list.files(folders_drug_enrich[i])
+  PRF_files = PRF_files[stri_detect_fixed(PRF_files, pattern = ".xlsx")]
+  
+  if (length(PRF_files) < 1){
+    next
+  }
+  
+  PRF_enrich_report = openxlsx::read.xlsx(paste0(folders_drug_enrich[i], "/", PRF_files), sheet = 1)
+  Drug_Enrich_reports[[i]] = PRF_enrich_report
+}
+Drug_Enrich_reports = Drug_Enrich_reports[sapply(Drug_Enrich_reports, is.data.frame)]
+openxlsx::write.xlsx(x = Drug_Enrich_reports, 
+                     file = "Drug_enrichments/Combined_drug_enrichments.xlsx", 
+                     overwrite = TRUE)
+
+
 ################### Additional SNP statistics ###################
 
 HOWARD_DM_SNPS_NAT = GWAS_Cat_Filtered_df[GWAS_Cat_Filtered_df$LINK == "www.ncbi.nlm.nih.gov/pubmed/30718901",]
@@ -1800,6 +2050,7 @@ Cis_eQTLs_GTEx = smart_fread("/home/aleksandr/Desktop/WORK/Broad_Depression_Pape
 
 # Checking IDs 
 Trans_eQTLs_GTEx$variant_id %in% Cis_eQTLs_GTEx$variant_id # Only 5 SNPs overlap in both lists...
+table(Trans_eQTLs_GTEx$variant_id %in% Cis_eQTLs_GTEx$variant_id)
 
 # Mapping Trans_eQTLs_GTEx to dbSNP ids, 9 variants were not mapped to dbSNP153
 Trans_eQTLs_GTEx$dbSNP153id = sapply(Trans_eQTLs_GTEx$variant_id, function(x){
@@ -1841,9 +2092,13 @@ for ( i in 1:length(brain_names)){
 brain_eQTLS_GTEx = do.call(rbind, brain_eQTLS_GTEx)
 
 brain_eQTLS_GTEx_depr = brain_eQTLS_GTEx[brain_eQTLS_GTEx$rs_id_dbSNP151_GRCh38p7 %in% GWAS_CAT_Depress_specific_SNPs_153_mapped$name, ]
-table(brain_eQTLS_GTEx_depr$gene_name %in% Genes_matching_dir_expression) # None were mapped to genes with matching dir in blood
+table(brain_eQTLS_GTEx_depr$gene_name %in% Genes_matching_dir_expression) # 2 genes were mapped with matching dir in blood
 repeated_brain_eQTLs_GTEx = as.data.frame(table(brain_eQTLS_GTEx_depr$rs_id_dbSNP151_GRCh38p7))
 repeated_brain_eQTLs_GTEx = repeated_brain_eQTLs_GTEx[repeated_brain_eQTLs_GTEx$Freq > 1,]
+
+# Exploring mapped eQTL and gene associations
+brain_eQTLS_GTEx_depr_mapped = brain_eQTLS_GTEx_depr[brain_eQTLS_GTEx_depr$gene_name %in% Genes_matching_dir_expression, ]
+Combined_expression_brain_eQTLS_GTEx_depr_mapped = Combined_expression_df[Combined_expression_df$Gene %in% brain_eQTLS_GTEx_depr_mapped$gene_name,]
 
 # Stats blood
 table(Cis_eQTLs_GTEx_depr$rs_id_dbSNP151_GRCh38p7 %in% HOWARD_DM_SNPS_NAT) # 4 not in Howard DM, 2 in Howard DM, 6 total "rs301799"   "rs13084037"
@@ -1852,8 +2107,9 @@ table(Cis_eQTLs_GTEx_depr$rs_id_dbSNP151_GRCh38p7 %in% GWAS_CAT_reprod$`Genome-w
 # Stats brain
 table(repeated_brain_eQTLs_GTEx$Var1 %in% HOWARD_DM_SNPS_NAT) # 18 not in Howard DM, 3 in Howard DM, 21 total rs12624433 rs13084037 rs1933802 
 table(repeated_brain_eQTLs_GTEx$Var1 %in% GWAS_CAT_reprod$`Genome-wide.significant.SNP`) # 17 not in reprod, 4 in reprod, 21 total rs12624433 rs1933802  rs2721811  rs9517313 
-table(unique(brain_eQTLS_GTEx_depr$rs_id_dbSNP151_GRCh38p7) %in% HOWARD_DM_SNPS_NAT) # 7 in Howard DM
-table(unique(brain_eQTLS_GTEx_depr$rs_id_dbSNP151_GRCh38p7) %in% GWAS_CAT_reprod$`Genome-wide.significant.SNP`) # 8 in reprod
+table(unique(brain_eQTLS_GTEx_depr$rs_id_dbSNP151_GRCh38p7) %in% HOWARD_DM_SNPS_NAT) # 7 in Howard DM, 74 not
+table(unique(brain_eQTLS_GTEx_depr$rs_id_dbSNP151_GRCh38p7) %in% GWAS_CAT_reprod$`Genome-wide.significant.SNP`) # 8 in reprod, 73 not
+
 
 ################### Mapping individual OMICs layers and overlaps to BIOS QTL browser ###################
 
@@ -1867,16 +2123,21 @@ gene_eQTLs_BIOS =  smart_fread("/home/aleksandr/Desktop/WORK/Broad_Depression_Pa
 gene_eQTLs_BIOS_depr = gene_eQTLs_BIOS[gene_eQTLs_BIOS$SNPName %in% GWAS_CAT_Depress_specific_SNPs_153_mapped$name, ]
 gene_eQTLs_BIOS_depr_expanded = multiple_expander(df = gene_eQTLs_BIOS_depr, cols_to_expand = c(5,17), pattern = ",")
 gene_eQTLs_BIOS_depr_snps = gene_eQTLs_BIOS_depr$SNPName
-gene_eQTLs_BIOS_depr_snps = unique(gene_eQTLs_BIOS_depr_snps) # 599 unique SNPs are eQTLs
+gene_eQTLs_BIOS_depr_snps = unique(gene_eQTLs_BIOS_depr_snps) 
+length(gene_eQTLs_BIOS_depr_snps) # 599 unique SNPs are eQTLs
 
 associated_genes_eQTLs_BIOS_depr = gene_eQTLs_BIOS_depr$HGNCName
 associated_genes_eQTLs_BIOS_depr = unlist(stri_split_fixed(associated_genes_eQTLs_BIOS_depr, pattern = ","))
-associated_genes_eQTLs_BIOS_depr = unique(associated_genes_eQTLs_BIOS_depr) # 1142 unique genes
+associated_genes_eQTLs_BIOS_depr = unique(associated_genes_eQTLs_BIOS_depr)
+length(associated_genes_eQTLs_BIOS_depr) # 1142 unique genes
 
 # Matching to transcriptome
-associated_genes_eQTLs_BIOS_depr[associated_genes_eQTLs_BIOS_depr %in% Genes_matching_dir_expression] # "BEST1"    "FES"      "RNF24"    "HIP1"     "ACOX1"    "ST3GAL6"  "NEU1"     "HLA-DPB1" "C11orf80" "OASL"     "PANX2"    "CASP1"  
-table(associated_genes_eQTLs_BIOS_depr %in% Genes_matching_dir_expression) # 12 genes are among the ones with matching trancriptome direction
-associated_genes_eQTLs_BIOS_depr[associated_genes_eQTLs_BIOS_depr %in% Overlapping_genes_gwas_transcript] # 2 genes are in the overlap "RNF24" "HIP1" (2 out of 7)
+associated_genes_eQTLs_BIOS_depr[associated_genes_eQTLs_BIOS_depr %in% Genes_matching_dir_expression]
+table(associated_genes_eQTLs_BIOS_depr %in% Genes_matching_dir_expression) # 35 genes are among the ones with matching transcriptome direction
+eQTLs_BIOS_depr_matched = gene_eQTLs_BIOS_depr[gene_eQTLs_BIOS_depr$HGNCName %in% Genes_matching_dir_expression,]
+Combined_expression_brain_eQTLs_BIOS_depr_matched = Combined_expression_df[Combined_expression_df$Gene %in% eQTLs_BIOS_depr_matched$HGNCName,]
+
+associated_genes_eQTLs_BIOS_depr[associated_genes_eQTLs_BIOS_depr %in% Overlapping_genes_gwas_transcript] # 7 genes are in the overlap "ACTR5"  "METTL9" "RNF24"  "HIP1"   "PRRC2A" "RTN4"   "MRPL37"
 
 # Matching to reprod SNPs and  Howard DM
 table(gene_eQTLs_BIOS_depr_snps %in% HOWARD_DM_SNPS_NAT) # 561 not in Howard DM, 38 in Howard DM
@@ -1889,7 +2150,7 @@ Trans_meQTL_BIOS_depr = Trans_meQTL_BIOS[Trans_meQTL_BIOS$SNPName %in% GWAS_CAT_
 Trans_meQTL_BIOS_depr_SNPs = Trans_meQTL_BIOS_depr$SNPName
 length(unique(Trans_meQTL_BIOS_depr_SNPs)) # 13 unique SNPs affecting DNA methylation at FDR
 Trans_meQTL_BIOS_depr_CpGs = Trans_meQTL_BIOS_depr$ProbeName
-length(unique(Cis_meQTL_BIOS_depr_CpGs))  # 96 unique CpGs
+length(unique(Trans_meQTL_BIOS_depr_CpGs))  # 96 unique CpGs
 
 # Matching to reproducible CpGs
 table(Trans_meQTL_BIOS_depr_CpGs %in% CpG_table_methyl_depr_Overlap_all) # No CpGs were detected in the overlap
@@ -1917,9 +2178,10 @@ Cis_meQTL_BIOS_depr_matched$CpG_gene = sapply(Cis_meQTL_BIOS_depr_matched$ProbeN
   x = Combined_methyl_df_significant_unique[Combined_methyl_df_significant_unique$CpG == x, "Upd_gene_name"]
   return(x)
 })
-Cis_meQTL_BIOS_depr_matched$SNP_gene == Cis_meQTL_BIOS_depr_matched$CpG_gene # Both match
-Cis_meQTL_BIOS_depr_matched$SNP_gene %in% Intersect_GWAS_Methyl
+Cis_meQTL_BIOS_depr_matched$SNP_gene == Cis_meQTL_BIOS_depr_matched$CpG_gene # Both match "LPIN3" "VPS41"
+Cis_meQTL_BIOS_depr_matched$SNP_gene %in% Intersect_GWAS_Methyl # No overlaps
 "LPIN3" %in% Df_methyl_Signif_Overlap_all$Upd_gene_name
+"VPS41" %in% Intersect_ALL # This gene is in triple intersect
 
 # Matching to reproducible SNPs and Howard DM
 table(unique(Cis_meQTL_BIOS_depr_SNPs) %in% HOWARD_DM_SNPS_NAT) # 113 not in Howard DM, 8 in Howard DM
@@ -1936,28 +2198,47 @@ table(Cis_meQTL_BIOS_depr_CpGs %in% Cis_eQTM_BIOS_depr$SNPName) # No overlaps be
 c("cg26688911", "cg07325168") %in% Cis_eQTM_BIOS_depr$SNPName
 
 # Matching to transcriptome
-table(Cis_eQTM_BIOS_depr_genes %in% Genes_matching_dir_expression) # None of them overlap with transcriptome
-Cis_eQTM_BIOS_depr_genes[Cis_eQTM_BIOS_depr_genes %in% Genes_matching_dir_expression]
+table(Cis_eQTM_BIOS_depr_genes %in% Genes_matching_dir_expression) # One gene overlaps with transcriptome
+Cis_eQTM_BIOS_depr_genes[Cis_eQTM_BIOS_depr_genes %in% Genes_matching_dir_expression] # "PCID2"
 Cis_eQTM_BIOS_depr_genes[Cis_eQTM_BIOS_depr_genes %in% Overlapping_genes_methyl_transcript] # None of them overlap with methyl-transcriptome
+Cis_eQTM_BIOS_depr_genes_mapped = Cis_eQTM_BIOS_depr[Cis_eQTM_BIOS_depr$HGNCName %in% Genes_matching_dir_expression, ]
+Cis_eQTM_BIOS_depr_genes_mapped_methylation = Combined_methyl_df_significant[Combined_methyl_df_significant$CpG %in% Cis_eQTM_BIOS_depr_genes_mapped$SNPName,]
 
 
 ################### Network visualization ###################
 
 # Preparing datasets
-# eQTL
+
+# eQTL GTEx
+brain_eQTLS_GTEx_depr_mapped
+
+# eQTL BIOS
 gene_eQTLs_BIOS_depr_matched = gene_eQTLs_BIOS_depr_expanded[gene_eQTLs_BIOS_depr_expanded$HGNCName %in% Genes_matching_dir_expression,]
 all(gene_eQTLs_BIOS_depr_matched$SNPName %in% GWAS_CAT_Depress_specific_SNPs_153_mapped$name) # All are among depression SNPs
 
-# meQTL
+# cis meQTL BIOS
 Cis_meQTL_BIOS_depr_matched
 
+# cis eQTM BIOS
+Cis_eQTM_BIOS_depr_genes_mapped
+
 # Making graphs
-eQTL_graph = gene_eQTLs_BIOS_depr_matched[,c("SNPName", "HGNCName")]
-colnames(eQTL_graph) = c("Start", "End")
+eQTL_GTEx_graph = brain_eQTLS_GTEx_depr_mapped[,c("rs_id_dbSNP151_GRCh38p7", "gene_name")]
+colnames(eQTL_GTEx_graph) = c("Start", "End")
+
+eQTL_BIOS_graph = gene_eQTLs_BIOS_depr_matched[,c("SNPName", "HGNCName")]
+colnames(eQTL_BIOS_graph) = c("Start", "End")
+
 meQTL_graph = Cis_meQTL_BIOS_depr_matched[,c("SNPName", "ProbeName")]
 colnames(meQTL_graph) = c("Start", "End")
 
-Graph_DS = rbind(eQTL_graph, meQTL_graph)
+eQTM_graph = Cis_eQTM_BIOS_depr_genes_mapped[,c("SNPName", "HGNCName")]
+colnames(eQTM_graph) = c("Start", "End")
+
+Graph_DS = rbind(eQTL_GTEx_graph, 
+                 eQTL_BIOS_graph,
+                 meQTL_graph,
+                 eQTM_graph)
 network_data = graph_from_data_frame(d = Graph_DS[,1:2], directed = TRUE)
 network_data = toVisNetworkData(network_data)
 
@@ -1965,12 +2246,19 @@ network_data = toVisNetworkData(network_data)
 network_data$nodes$group = sapply(network_data$nodes$id, function(x){
   if (x %in% GWAS_CAT_Depress_specific_SNPs_153_mapped$name & x %!in% GWAS_CAT_reprod$`Genome-wide.significant.SNP`){
     return("SNP")
+    
   } else if (x %in% GWAS_CAT_Depress_specific_SNPs_153_mapped$name & x %in% GWAS_CAT_reprod$`Genome-wide.significant.SNP`){
     return("Reprod.SNP")
+    
   } else if (x %in% CpG_table_methyl_depr_Overlap_all & x %!in% CpG_table_methyl_depr_Overlap){
     return("CpG")
+    
   } else if (x %in% CpG_table_methyl_depr_Overlap_all & x %in% CpG_table_methyl_depr_Overlap){
     return("CpG.Matching.dir")
+    
+  } else if (x %in% Intersect_ALL){
+      return("Gene intersect")
+    
   } else {
     return("Transcript")
   }
@@ -1995,19 +2283,24 @@ for (i in 1:nrow(network_data$edges)){
     network_data$edges$color[i] = "blue"
     network_data$edges$font.color[i] = "blue"
     network_data$edges$label[i] = "meQTL"
-  } else if (PRF_gr_Start %in% c("SNP", "Reprod.SNP") & PRF_gr_End %in% "Transcript"){
+  } else if (PRF_gr_Start %in% c("SNP", "Reprod.SNP") & PRF_gr_End %in% c("Gene intersect", "Transcript")){
     network_data$edges$color[i] = "red"
     network_data$edges$font.color[i] = "red"
     network_data$edges$label[i] = "eQTL"
+  } else if (PRF_gr_Start %in% c("CpG", "CpG.Matching.dir") & PRF_gr_End %in% c("Gene intersect", "Transcript")){
+    network_data$edges$color[i] = "brown"
+    network_data$edges$font.color[i] = "brown"
+    network_data$edges$label[i] = "eQTM"
   }
 }
 
 net = visNetwork(nodes = network_data$nodes, edges = network_data$edges, height = "2000px", width = "2000px") %>%
   visIgraphLayout(layout = "layout_with_fr", physics = FALSE, randomSeed = 190) %>%
-  visGroups(groupname = "SNPl", color = list("background" = "skyblue", border = "black")) %>% 
+  visGroups(groupname = "SNP", color = list("background" = "skyblue", border = "black")) %>% 
   visGroups(groupname = "Reprod.SNP", color = list("background" = "green", border = "black")) %>% 
-  visGroups(groupname = "CpG", color = list("background" = "red", border = "black")) %>% 
-  visGroups(groupname = "CpG.Matching.dir", color = list("background" = "#FBCEB1", border = "black")) %>% 
+  visGroups(groupname = "CpG", color = list("background" = "#FBCEB1", border = "black")) %>% 
+  visGroups(groupname = "CpG.Matching.dir", color = list("background" = "violet", border = "black")) %>% 
+  visGroups(groupname = "Gene intersect", color = list("background" = "red", border = "black")) %>% 
   visGroups(groupname = "Transcript", color = list("background" = "orange", border = "black")) %>% 
   visNodes(size = 15, borderWidth = 0.3, font = list(size = 24)) %>%
   visEdges(width = 1.5, smooth = list(type = "curvedCW", roundness = 0.1)) %>%
@@ -2015,6 +2308,7 @@ net = visNetwork(nodes = network_data$nodes, edges = network_data$edges, height 
   visOptions(highlightNearest = list(enabled = T, hover = T), 
              nodesIdSelection = F)
 visSave(net, file = "mapped_hits.html")
+Sys.setenv("OPENSSL_CONF"="/dev/null")
 webshot("mapped_hits.html", "mapped_hits.png", vwidth = 2000, vheight = 2000, zoom = 1)
 
 # Writing outputs
@@ -2022,9 +2316,13 @@ webshot("mapped_hits.html", "mapped_hits.png", vwidth = 2000, vheight = 2000, zo
 QTL_analysis_list = list(
   "blood_eQTLS_GTEx" = Cis_eQTLs_GTEx_depr,
   "brain_eQTLS_GTEx" = brain_eQTLS_GTEx_depr,
+  "brain_eQTLS_GTEx_matched" = brain_eQTLS_GTEx_depr_mapped,
   "eQTLs_BIOS" = gene_eQTLs_BIOS_depr,
-  "blood_eQTLs_BIOS_matched" = gene_eQTLs_BIOS_depr_matched,
-  "blood_eQTMs_BIOS" = Cis_eQTM_BIOS_depr
+  "eQTLs_BIOS_matched" = gene_eQTLs_BIOS_depr_matched,
+  "cis_meQTL_BIOS_depr" = Cis_meQTL_BIOS_depr,
+  "cis_meQTL_BIOS_depr_matched" = Cis_meQTL_BIOS_depr_matched,
+  "blood_eQTMs_BIOS" = Cis_eQTM_BIOS_depr,
+  "blood_eQTMs_BIOS_matched" = Cis_eQTM_BIOS_depr_genes_mapped
 )
 write.xlsx(QTL_analysis_list,"QTL_analysis_list.xlsx" ,overwrite = TRUE)
 

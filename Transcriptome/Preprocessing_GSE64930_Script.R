@@ -1,7 +1,7 @@
 # Preprocessing Script for the GSE64930
 # Raw data files could be obtained from the corresponding repository at GSE64930 https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE64930
 # Note 1: The authors used a last updated version of GSE64930 obtained directly from the MPIP (please contact MPIP to obtain raw files)
-# Note 2: The equal sign = was used as an assignment operator as authors don't buy the idea of using <- for typing/productivity reasons
+# Note 2: The equal sign = was used as an assignment operator for typing/productivity reasons
 
 Working_directory = "..." # Replace with an appropriate directory
 setwd(Working_directory)

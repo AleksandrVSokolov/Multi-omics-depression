@@ -1,7 +1,7 @@
 # Preprocessing Script for the GSE46743
 # Raw data files could be obtained from the corresponding repository at GSE46743 https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE46743
 # Note 1: To execute the script, the user has to download files from repository
-# Note 2: The equal sign = was used as an assignment operator as authors don't buy the idea of using <- for typing/productivity reasons
+# Note 2: The equal sign = was used as an assignment operator for typing/productivity reasons
 
 Working_directory = "..." # Replace with an appropriate directory
 setwd(Working_directory)

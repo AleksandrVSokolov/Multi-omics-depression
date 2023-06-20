@@ -1,6 +1,6 @@
 ################# This script shows analysis for DNA methylation data ################# 
-# Note 1: The equal sign = was used as an assignment operator as authors don't buy the idea of using <- for typing/productivity reasons
-# Note 2: In many cases loops were deliberately used instead of apply functions to enable better control of the variables (even though loops in R are slow and computationally inefficient)
+# Note 1: The equal sign = was used as an assignment operator for typing/productivity reasons
+# Note 2: In many cases loops were deliberately used instead of apply functions to enable better control of the variables
 # Note 3: Some variables in the loops contain prefixes to enable easy cleanup of the environment once the loop is executed
 # Note 4: The whole running environment gets heavy once the data is imported (It is not advised to run a script on a machine with less than 32 GB of RAM)
 # Note 5: Some of the raw files (primarily phenotype data (PSY and GSE125105) and DNA methylation data (PSY)) could not be deposited publicly (for ethical reasons)
@@ -11,7 +11,7 @@ Working_directory = "~/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omi
 setwd(Working_directory)
 
 # Setting options
-getOption("scipen") # default number notation is 0
+getOption("scipen") # Default number notation is 0
 options(scipen=999)
 options(stringsAsFactors = FALSE)
 
@@ -46,7 +46,6 @@ library(Gviz)
 library(limma)
 library(FactoMineR)
 library(ggthemes)
-library(UniprotR)
 library(RSelenium)
 library(lumi)
 library(outliers)
@@ -64,7 +63,6 @@ library(clusterProfiler)
 library(DOSE)
 library(enrichplot)
 library(chromoMap)
-library(UniprotR)
 library(RIdeogram)
 library(ggVennDiagram)
 
@@ -87,7 +85,7 @@ list_to_df = function(data_list){
 # A function to replace multiple patterns by multiple replacements in a string
 multiple_stri_replacer = function(string, pattern_vector, replacement_vector){
   
-  # pattern_vector and replacement_vector should have the same length
+  # Pattern_vector and replacement_vector should have the same length
   for (i in 1:length(pattern_vector)){
     string = stri_replace_all_fixed(str = string, pattern = pattern_vector[i], replacement = replacement_vector[i])
   }
@@ -96,7 +94,7 @@ multiple_stri_replacer = function(string, pattern_vector, replacement_vector){
 
 # A function to read text files fast; uses data.table::fread
 smart_fread = function(x, ...){
-  x = as.data.frame(fread(x, nThread = 14, ...))
+  x = as.data.frame(fread(x, nThread = 10, ...))
   if ("V1" %in% colnames(x)){
     rownames(x) = x$V1
     x$V1 = NULL
@@ -122,18 +120,18 @@ multiple_expander = function(df, cols_to_expand, pattern){
   df_const = df[,-cols_to_expand, drop = FALSE]
   orig_colnames_modif = colnames(df_modif)
   
-  # running expansion
+  # Running expansion
   df_list = list()
   for (i in 1:nrow(df_const)){
     print(i)
     curr_df_const = df_const[i,, drop = FALSE]
     curr_df_modif = df_modif[i,, drop = FALSE]
-    curr_df_modif = apply(curr_df_modif, 2, function(x) unlist(stri_split_fixed(x, pattern = pattern)))
+    curr_df_modif = apply(curr_df_modif, 2, function(x) unlist(stri_split_fixed(x, pattern = pattern)), simplify = FALSE)
     
     if (length(cols_to_expand) > 1){
       curr_df_modif = do.call(cbind, curr_df_modif)
     } else {
-      curr_df_modif = as.character(curr_df_modif)
+      curr_df_modif = unlist(curr_df_modif)
     }
     
     if (is.matrix(curr_df_modif)){
@@ -754,10 +752,10 @@ filter_annotation_illumina = function(annot_df, mode){
   return(annot_df)
 }
 
-# function to perform enrichment for GO terms and KEGG and create figures that may be useful
-# all results are saved in the specified folder
-# genes and universe are accepted as vectors of Entrez IDs
-# some of the ploting is performed within tryCatch since these plots may not be rendered depending on the enrichment results
+# Function to perform enrichment for GO terms and KEGG and create figures that may be useful
+# All results are saved in the specified folder
+# Genes and universe are accepted as vectors of Entrez IDs
+# Some of the plotting is performed within tryCatch since these plots may not be rendered depending on the enrichment results
 run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show = 30, folder, plot_name_pref){
   
   # genes should be submitted as Entrez IDs
@@ -929,7 +927,7 @@ run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show =
         dev.off()
       }, error = function(e) {writeLines(paste0("Full gene conc plot is not available for ", filename))})
       
-      #GO induced graph
+      # GO induced graph
       tryCatch({
         pdf(paste0(filename, "_go_graph.pdf"), 
             width = 19, height = 11)
@@ -944,7 +942,7 @@ run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show =
         dev.off()
       }, error = function(e) {writeLines(paste0("Go graph (big) is not available for ", filename))})
       
-      #Tree plot
+      # Tree plot
       Curr_GO_pairwise = enrichplot::pairwise_termsim(Curr_GO)
       dimensions = c(19*nrow(Curr_GO_pairwise@termsim)/categories_to_show, 11*nrow(Curr_GO_pairwise@termsim)/categories_to_show)
       if (any(dimensions < 1)){
@@ -966,7 +964,7 @@ run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show =
       }, error = function(e) {writeLines(paste0("Tree plot (big) is not available for ", filename))})
       
       
-      #Enrichment map
+      # Enrichment map
       tryCatch({
         pdf(paste0(filename, "_enr_map.pdf"), 
             width = 19, height = 11)
@@ -986,7 +984,7 @@ run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show =
     }
   }
   
-  # preparing outputs to load into the environment
+  # Preparing outputs to load into the environment
   GO_Enrichment[[4]] = KEGG_Enrichment
   
   if (is.null(KEGG_Enrichment)){
@@ -1286,8 +1284,8 @@ Phenotypes_SCR$Is_genotyped = factor(Phenotypes_SCR$Is_genotyped, levels = c("YE
 E_GEOD_72680_beta_val = smart_fread("/home/aleksandr/Desktop/WORK/open_access_cohorts/E-GEOD-72680-Methyl-Mental-Trauma/beta_corrected_GSE72680.txt") # Replace with an appropriate path
 E_GEOD_72680_Mval = smart_fread("/home/aleksandr/Desktop/WORK/open_access_cohorts/E-GEOD-72680-Methyl-Mental-Trauma/Mval_corrected_GSE72680.txt") # Replace with an appropriate path 
 E_GEOD_72680_Phenotypes = as.data.frame(fread("/home/aleksandr/Desktop/WORK/open_access_cohorts/E-GEOD-72680-Methyl-Mental-Trauma/GSE_version/data", skip = 30, nThread = 14)) # Replace with an appropriate path
-# the data file was downloaded from GEO (series matrix file)
-# structure is complex and should be reformatted
+# The data file was downloaded from GEO (series matrix file)
+# Structure is complex and should be reformatted
 
 # Preparing scaffold data dataframe with phenotypes
 E_GEOD_72680_Phenotypes_Scaffold = E_GEOD_72680_Phenotypes[-(8:36),]
@@ -2222,7 +2220,7 @@ for (i in 1:length(PRF_Max_LF_seq)){
   PRF_intersect_PSY_GSE72680_count_percent_all = round((PRF_intersect_PSY_GSE72680_count/PRF_sign_unqiue)*100, digits = 2)
   PRF_intersect_GSE125105_GSE72680_count_percent_all = round((PRF_intersect_GSE125105_GSE72680_count/PRF_sign_unqiue)*100, digits = 2)
   
-  #Percent_intersect
+  # Percent_intersect
   PRF_total_intersect = c(PRF_intersect_all, PRF_intersect_PSY_GSE125105, PRF_intersect_PSY_GSE72680, PRF_intersect_GSE125105_GSE72680)
   PRF_total_intersect = unique(PRF_total_intersect)
   PRF_total_intersect_count = length(PRF_total_intersect)
@@ -2310,14 +2308,14 @@ for (i in 1:length(PRF_P_val_seq)){
   PRF_current_df_GSE125105 = PRF_current_df[PRF_current_df$Contrast == "GSE125105 Depression:Depression/Non-depressed",]
   PRF_current_df_GSE72680 = PRF_current_df[PRF_current_df$Contrast == "E-GEOD-72680 Depression Composite:Depressed/Normal",]
   
-  #Counting significant CpGs
+  # Counting significant CpGs
   PRF_sign_PSY = nrow(PRF_current_df_PSY_SCR)
   PRF_sign_GSE125105 = nrow(PRF_current_df_GSE125105)
   PRF_sign_GSE72680 = nrow(PRF_current_df_GSE72680)
   PRF_sign_sum = nrow(PRF_current_df)
   PRF_sign_unqiue = length(unique(PRF_current_df$CpG))
   
-  #Getting overlapping CpGs
+  # Getting overlapping CpGs
   PRF_sign_PSY_CpGs = PRF_current_df_PSY_SCR$CpG
   PRF_sign_GSE125105_CpGs = PRF_current_df_GSE125105$CpG
   PRF_sign_GSE72680_CpGs = PRF_current_df_GSE72680$CpG
@@ -2344,7 +2342,7 @@ for (i in 1:length(PRF_P_val_seq)){
   PRF_intersect_PSY_GSE72680_count_percent_all = round((PRF_intersect_PSY_GSE72680_count/PRF_sign_unqiue)*100, digits = 2)
   PRF_intersect_GSE125105_GSE72680_count_percent_all = round((PRF_intersect_GSE125105_GSE72680_count/PRF_sign_unqiue)*100, digits = 2)
   
-  #Percent_intersect
+  # Percent_intersect
   PRF_total_intersect = c(PRF_intersect_all, PRF_intersect_PSY_GSE125105, PRF_intersect_PSY_GSE72680, PRF_intersect_GSE125105_GSE72680)
   PRF_total_intersect = unique(PRF_total_intersect)
   PRF_total_intersect_count = length(PRF_total_intersect)

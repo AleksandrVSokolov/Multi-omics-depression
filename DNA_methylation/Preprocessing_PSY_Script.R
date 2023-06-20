@@ -4,8 +4,8 @@
 #  -> if approved by an ethical review board of Uppsala University
 # Note 1: This script is not expected to be executed since raw files and paths are not included
 # Note 2: Computer-specific file paths are shown as "..."
-# Note 3: The equal sign = was used as an assignment operator as authors don't buy the idea of using <- for typing/productivity reasons
-# Note 4: In many cases loops were deliberately used instead of apply functions to enable better control of the variables (even though loops in R are slow and computationally inefficient)
+# Note 3: The equal sign = was used as an assignment operator for typing/productivity reasons
+# Note 4: In many cases loops were deliberately used instead of apply functions to enable better control of the variables
 
 Working_directory = "..." # Replace with an appropriate directory
 setwd(Working_directory)

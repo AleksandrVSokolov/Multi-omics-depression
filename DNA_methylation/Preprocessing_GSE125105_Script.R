@@ -2,8 +2,8 @@
 # Raw data files could be obtained from corresponding repository at GSE125105 https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE125105
 # Note 1: This script is not expected to be executed since some of raw files are not provided (Contact authors for authorized request if needed)
 # Note 2: Computer-specific file paths are shown as "..."
-# Note 3: The equal sign = was used as an assignment operator as authors don't buy the idea of using <- for typing/productivity reasons
-# Note 4: In many cases loops were deliberately used instead of apply functions to enable better control of the variables (even though loops in R are slow and computationally inefficient)
+# Note 3: The equal sign = was used as an assignment operator for typing/productivity reasons
+# Note 4: In many cases loops were deliberately used instead of apply functions to enable better control of the variables
 
 Working_directory = "..." # Replace with an appropriate directory
 setwd(Working_directory)

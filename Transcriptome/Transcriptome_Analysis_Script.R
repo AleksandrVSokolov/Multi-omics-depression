@@ -1,6 +1,6 @@
 ################# This script shows analysis for Transcriptome data ################# 
-# Note 1: The equal sign = was used as an assignment operator as authors don't buy the idea of using <- for typing/productivity reasons
-# Note 2: In many cases loops were deliberately used instead of apply functions to enable better control of the variables (even though loops in R are slow and computationally inefficient)
+# Note 1: The equal sign = was used as an assignment operator for typing/productivity reasons
+# Note 2: In many cases loops were deliberately used instead of apply functions to enable better control of the variables
 # Note 3: Some variables in the loops contain prefixes to enable easy cleanup of the environment once the loop is executed
 # Note 4: The whole running environment gets heavy once the data is imported (It is not advised to run a script on a machine with less than 32 GB of RAM)
 # Note 5: Some of the raw files (primarily an updated data for GSE64930) could not be deposited publicly since was obtained with a request
@@ -10,7 +10,7 @@ Working_directory = "~/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omi
 setwd(Working_directory)
 
 # Setting options
-getOption("scipen") # default number notation is 0
+getOption("scipen") # Default number notation is 0
 options(scipen=999)
 options(stringsAsFactors = FALSE)
 
@@ -47,7 +47,6 @@ library(limma)
 library(FactoMineR)
 library(ggthemes)
 library(igraph)
-library(UniprotR)
 library(RSelenium)
 library(lumi)
 library(outliers)
@@ -67,7 +66,6 @@ library(clusterProfiler)
 library(DOSE)
 library(enrichplot)
 library(chromoMap)
-library(UniprotR)
 library(RIdeogram)
 library(ggVennDiagram)
 library(seqinr)
@@ -92,7 +90,7 @@ list_to_df = function(data_list){
 # A function to replace multiple patterns by multiple replacements in a string
 multiple_stri_replacer = function(string, pattern_vector, replacement_vector){
   
-  # pattern_vector and replacement_vector should have the same length
+  # Pattern_vector and replacement_vector should have the same length
   for (i in 1:length(pattern_vector)){
     string = stri_replace_all_fixed(str = string, pattern = pattern_vector[i], replacement = replacement_vector[i])
   }
@@ -101,7 +99,7 @@ multiple_stri_replacer = function(string, pattern_vector, replacement_vector){
 
 # A function to read text files fast; uses data.table::fread
 smart_fread = function(x, ...){
-  x = as.data.frame(fread(x, nThread = 14, ...))
+  x = as.data.frame(fread(x, nThread = 10, ...))
   if ("V1" %in% colnames(x)){
     rownames(x) = x$V1
     x$V1 = NULL
@@ -127,18 +125,18 @@ multiple_expander = function(df, cols_to_expand, pattern){
   df_const = df[,-cols_to_expand, drop = FALSE]
   orig_colnames_modif = colnames(df_modif)
   
-  # running expansion
+  # Running expansion
   df_list = list()
   for (i in 1:nrow(df_const)){
     print(i)
     curr_df_const = df_const[i,, drop = FALSE]
     curr_df_modif = df_modif[i,, drop = FALSE]
-    curr_df_modif = apply(curr_df_modif, 2, function(x) unlist(stri_split_fixed(x, pattern = pattern)))
+    curr_df_modif = apply(curr_df_modif, 2, function(x) unlist(stri_split_fixed(x, pattern = pattern)), simplify = FALSE)
     
     if (length(cols_to_expand) > 1){
       curr_df_modif = do.call(cbind, curr_df_modif)
     } else {
-      curr_df_modif = as.character(curr_df_modif)
+      curr_df_modif = unlist(curr_df_modif)
     }
     
     if (is.matrix(curr_df_modif)){
@@ -791,10 +789,10 @@ chromosome_table_getter = function(){
   return(Tables)
 }
 
-# function to perform enrichment for GO terms and KEGG and create figures that may be useful
-# all results are saved in the specified folder
-# genes and universe are accepted as vectors of Entrez IDs
-# some of the ploting is performed within tryCatch since these plots may not be rendered depending on the enrichment results
+# Function to perform enrichment for GO terms and KEGG and create figures that may be useful
+# All results are saved in the specified folder
+# Genes and universe are accepted as vectors of Entrez IDs
+# Some of the plotting is performed within tryCatch since these plots may not be rendered depending on the enrichment results
 run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show = 30, folder, plot_name_pref){
   
   # genes should be submitted as Entrez IDs
@@ -966,7 +964,7 @@ run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show =
         dev.off()
       }, error = function(e) {writeLines(paste0("Full gene conc plot is not available for ", filename))})
       
-      #GO induced graph
+      # GO induced graph
       tryCatch({
         pdf(paste0(filename, "_go_graph.pdf"), 
             width = 19, height = 11)
@@ -981,7 +979,7 @@ run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show =
         dev.off()
       }, error = function(e) {writeLines(paste0("Go graph (big) is not available for ", filename))})
       
-      #Tree plot
+      # Tree plot
       Curr_GO_pairwise = enrichplot::pairwise_termsim(Curr_GO)
       dimensions = c(19*nrow(Curr_GO_pairwise@termsim)/categories_to_show, 11*nrow(Curr_GO_pairwise@termsim)/categories_to_show)
       if (any(dimensions < 1)){
@@ -1003,7 +1001,7 @@ run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show =
       }, error = function(e) {writeLines(paste0("Tree plot (big) is not available for ", filename))})
       
       
-      #Enrichment map
+      # Enrichment map
       tryCatch({
         pdf(paste0(filename, "_enr_map.pdf"), 
             width = 19, height = 11)
@@ -1023,7 +1021,7 @@ run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show =
     }
   }
   
-  # preparing outputs to load into the environment
+  # Preparing outputs to load into the environment
   GO_Enrichment[[4]] = KEGG_Enrichment
   
   if (is.null(KEGG_Enrichment)){
@@ -1628,7 +1626,7 @@ while (i <= nrow(U133_Plus_2_Probes_Annotation)){
 }
 rm(list = ls()[stri_detect_fixed(ls(), pattern = "PRF_")])
 
-#Reading through files and creating the dataset
+# Reading through files and creating the dataset
 PRF_files_affymetrix_probes = list.files("Mapping_Affymetrix_Probes_Alignments")
 PRF_files_affymetrix_probes = paste0("Mapping_Affymetrix_Probes_Alignments/", PRF_files_affymetrix_probes)
 U133_Plus_2_Probes_Alignments = lapply(PRF_files_affymetrix_probes, function(x){
@@ -2083,9 +2081,8 @@ Analysis_limma_affymetrix_depr_broad_GSE98793 = test_genes_affymetrix_limma_gene
                                                                                         PREFIX_logFC_threshold = 0.1)
 Analysis_limma_affymetrix_depr_broad_GSE98793$Contrast = paste0("GSE98793: ",Analysis_limma_affymetrix_depr_broad_GSE98793$Contrast)
 Analysis_limma_affymetrix_depr_broad_GSE98793_signif = Analysis_limma_affymetrix_depr_broad_GSE98793[Analysis_limma_affymetrix_depr_broad_GSE98793$P.Value < 0.05,]
-Analysis_limma_affymetrix_depr_broad_GSE98793_signif = Analysis_limma_affymetrix_depr_broad_GSE98793_signif[abs(Analysis_limma_affymetrix_depr_broad_GSE98793_signif$logFC) >= 0.1,]
 write.csv(Analysis_limma_affymetrix_depr_broad_GSE98793, "Analysis_limma_affymetrix_depr_broad_GSE98793.csv")
-write.csv(Analysis_limma_affymetrix_depr_broad_GSE98793_signif, "Analysis_limma_affymetrix_depr_broad_GSE98793_signif.csv") # 3708 probes
+write.csv(Analysis_limma_affymetrix_depr_broad_GSE98793_signif, "Analysis_limma_affymetrix_depr_broad_GSE98793_signif.csv") # 4240 probes were nominally significant
 
 # Significant probes at FDR
 Analysis_limma_affymetrix_depr_broad_GSE98793_signif_FDR = Analysis_limma_affymetrix_depr_broad_GSE98793[Analysis_limma_affymetrix_depr_broad_GSE98793$adj.P.Val < 0.05,]
@@ -2131,7 +2128,7 @@ for (i in 1:length(unique(Analysis_limma_affymetrix_depr_broad_GSE98793_signif$U
 }
 Analysis_limma_affymetrix_depr_broad_GSE98793_signif_matching_dirs = Analysis_limma_affymetrix_depr_broad_GSE98793_signif_matching_dirs[sapply(Analysis_limma_affymetrix_depr_broad_GSE98793_signif_matching_dirs, is.data.frame)]
 Analysis_limma_affymetrix_depr_broad_GSE98793_signif_matching_dirs = list_to_df(Analysis_limma_affymetrix_depr_broad_GSE98793_signif_matching_dirs)
-write.csv(Analysis_limma_affymetrix_depr_broad_GSE98793_signif_matching_dirs, "Analysis_limma_affymetrix_depr_broad_GSE98793_signif_matching_dirs.csv") #3702 probes
+write.csv(Analysis_limma_affymetrix_depr_broad_GSE98793_signif_matching_dirs, "Analysis_limma_affymetrix_depr_broad_GSE98793_signif_matching_dirs.csv") # 4226 probes
 
 # Differential expression analysis in GSE46743
 Analysis_limma_illumina_depr_broad_GSE46743 = test_genes_Illumina_limma_generelized(PREFIX_gene_names = NULL,
@@ -2149,9 +2146,8 @@ Analysis_limma_illumina_depr_broad_GSE46743 = test_genes_Illumina_limma_genereli
                                                                                     PREFIX_logFC_threshold = 0.1)
 Analysis_limma_illumina_depr_broad_GSE46743$Contrast = paste0("GSE46743: ",Analysis_limma_illumina_depr_broad_GSE46743$Contrast)
 Analysis_limma_illumina_depr_broad_GSE46743_signif = Analysis_limma_illumina_depr_broad_GSE46743[Analysis_limma_illumina_depr_broad_GSE46743$P.Value < 0.05,]
-Analysis_limma_illumina_depr_broad_GSE46743_signif = Analysis_limma_illumina_depr_broad_GSE46743_signif[abs(Analysis_limma_illumina_depr_broad_GSE46743_signif$logFC) >= 0.1,]
 write.csv(Analysis_limma_illumina_depr_broad_GSE46743, "Analysis_limma_illumina_depr_broad_GSE46743.csv") # 11352 analyses
-write.csv(Analysis_limma_illumina_depr_broad_GSE46743_signif, "Analysis_limma_illumina_depr_broad_GSE46743_signif.csv") # 814 nominally significant probes
+write.csv(Analysis_limma_illumina_depr_broad_GSE46743_signif, "Analysis_limma_illumina_depr_broad_GSE46743_signif.csv") # 1647 nominally significant probes
 
 # Checking the uniquness of genes
 Analysis_GSE46743_genes = as.data.frame(table(Analysis_limma_illumina_depr_broad_GSE46743_signif$Gene)) # Some genes have 3 probes
@@ -2194,7 +2190,7 @@ for (i in 1:length(unique(Analysis_limma_illumina_depr_broad_GSE46743_signif$Gen
 }
 Analysis_limma_illumina_depr_broad_GSE46743_signif_matching_dirs = Analysis_limma_illumina_depr_broad_GSE46743_signif_matching_dirs[sapply(Analysis_limma_illumina_depr_broad_GSE46743_signif_matching_dirs, is.data.frame)]
 Analysis_limma_illumina_depr_broad_GSE46743_signif_matching_dirs = list_to_df(Analysis_limma_illumina_depr_broad_GSE46743_signif_matching_dirs)
-write.csv(Analysis_limma_illumina_depr_broad_GSE46743_signif_matching_dirs, "Analysis_limma_illumina_depr_broad_GSE46743_signif_matching_dirs.csv") # 814 passed, ALL are matching
+write.csv(Analysis_limma_illumina_depr_broad_GSE46743_signif_matching_dirs, "Analysis_limma_illumina_depr_broad_GSE46743_signif_matching_dirs.csv") # 1641 passed, ALL are matching
 
 # Differential expression analysis in GSE64930
 Analysis_limma_illumina_depr_broad_GSE64930 = test_genes_Illumina_limma_generelized(PREFIX_gene_names = NULL,
@@ -2211,9 +2207,8 @@ Analysis_limma_illumina_depr_broad_GSE64930 = test_genes_Illumina_limma_genereli
                                                                                     PREFIX_logFC_threshold = 0.1)
 Analysis_limma_illumina_depr_broad_GSE64930$Contrast = paste0("GSE64930: ",Analysis_limma_illumina_depr_broad_GSE64930$Contrast)
 Analysis_limma_illumina_depr_broad_GSE64930_signif = Analysis_limma_illumina_depr_broad_GSE64930[Analysis_limma_illumina_depr_broad_GSE64930$P.Value < 0.05,]
-Analysis_limma_illumina_depr_broad_GSE64930_signif = Analysis_limma_illumina_depr_broad_GSE64930_signif[abs(Analysis_limma_illumina_depr_broad_GSE64930_signif$logFC) >= 0.1,]
 write.csv(Analysis_limma_illumina_depr_broad_GSE64930, "Analysis_limma_illumina_depr_broad_GSE64930.csv") # 10846 analyses
-write.csv(Analysis_limma_illumina_depr_broad_GSE64930_signif, "Analysis_limma_illumina_depr_broad_GSE64930_signif.csv") # 148 passed
+write.csv(Analysis_limma_illumina_depr_broad_GSE64930_signif, "Analysis_limma_illumina_depr_broad_GSE64930_signif.csv") # 888 passed
 
 # Getting matching direction probes for GSE46743 (Probes are considered matching if more than 80% had a concordant direction)
 Analysis_limma_illumina_depr_broad_GSE64930_signif_matching_dirs = list()
@@ -2253,7 +2248,7 @@ for (i in 1:length(unique(Analysis_limma_illumina_depr_broad_GSE64930_signif$Gen
 }
 Analysis_limma_illumina_depr_broad_GSE64930_signif_matching_dirs = Analysis_limma_illumina_depr_broad_GSE64930_signif_matching_dirs[sapply(Analysis_limma_illumina_depr_broad_GSE64930_signif_matching_dirs, is.data.frame)]
 Analysis_limma_illumina_depr_broad_GSE64930_signif_matching_dirs = list_to_df(Analysis_limma_illumina_depr_broad_GSE64930_signif_matching_dirs)
-write.csv(Analysis_limma_illumina_depr_broad_GSE64930_signif_matching_dirs, "Analysis_limma_illumina_depr_broad_GSE64930_signif_matching_dirs.csv") #148 passed, ALL passed
+write.csv(Analysis_limma_illumina_depr_broad_GSE64930_signif_matching_dirs, "Analysis_limma_illumina_depr_broad_GSE64930_signif_matching_dirs.csv") # 888 passed, ALL passed
 rm(list = ls()[stri_detect_fixed(ls(), pattern = "PRF_")])
 
 
@@ -2293,7 +2288,7 @@ Venn_covered_genes_signif_intersect = lapply(Venn_covered_genes_signif_intersect
 })
 make_Venn_digram_list(named_list = Venn_covered_genes_signif_intersect, palette = 4, plot_full_path = "Venn_expression_depression_sign_cohort_matching_intersect.pdf")
 
-# only 40.7% of genes are common for all studies
+# Only 40.7% of genes are common for all studies
 Expression_Genes_intersect_all = Reduce(intersect, list(Venn_covered_genes[[1]], Venn_covered_genes[[2]], Venn_covered_genes[[3]]))
 
 # Making combined expression dataset
@@ -2344,7 +2339,7 @@ PRF_One_gene_study_df = list()
 PRF_study_levels = unique(Combined_expression_df$Contrast)
 for (index2 in 1:length(PRF_study_levels)){
   PRF_curr_study = Combined_expression_df[Combined_expression_df$Contrast == PRF_study_levels[index2],]
-  # Simplify the data to the first probe (they all are matching in direction)
+  # Simplify the data for every gene to a single row (all false directions were removed already)
   PRF_curr_study = distinct(PRF_curr_study, Gene, .keep_all = TRUE)
   PRF_One_gene_study_df[[index2]] = PRF_curr_study
 }
@@ -2358,17 +2353,17 @@ PRF_matching_dir_index = sapply(unique(PRF_One_gene_study_df$Gene), function(PRF
     return(FALSE)
   }
   PRF_probes_greater_0 = which(PRF_LFs > 0)
-  PRF_probes_greater_0 = length(PRF_probes_greater_0)/length(PRF_LFs)
+  PRF_probes_greater_0 = length(PRF_probes_greater_0)
   PRF_probes_smaller_0 = which(PRF_LFs < 0)
-  PRF_probes_smaller_0 = length(PRF_probes_smaller_0)/length(PRF_LFs)
+  PRF_probes_smaller_0 = length(PRF_probes_smaller_0)
   PRF_combined = c(PRF_probes_greater_0, PRF_probes_smaller_0)
-  if (any(PRF_combined == 1)){
+  if (any(PRF_combined >= 2)){
     return(TRUE)
   }
   return(FALSE)
 })
 Genes_matching_dir = unique(PRF_One_gene_study_df$Gene)[PRF_matching_dir_index]
-Genes_matching_dir = Genes_matching_dir[Genes_matching_dir %in% Transcriptome_intersect_all] #230
+Genes_matching_dir = Genes_matching_dir[Genes_matching_dir %in% Transcriptome_intersect_all] #581
 
 # Venn diagram
 Venn_covered_genes_signif_intersect = list(
@@ -2399,7 +2394,7 @@ Combined_expression_df = lapply(Combined_expression_df, function(x){
 })
 Combined_expression_df = do.call(rbind, Combined_expression_df)
 Combined_expression_df = Combined_expression_df[Combined_expression_df$Gene %in% Expression_Genes_intersect_all,]
-# 3157 probes are significant and presented in the overlap
+# 4837 probes (non-unique) are significant and presented in the overlap
 
 # Preparing steps in P
 Combined_expression_df$P.Value.log = -log10(Combined_expression_df$P.Value)
@@ -2409,7 +2404,7 @@ PRF_Min_P_val_log = min(Combined_expression_df$P.Value.log)
 PRF_Min_P_val_log = round(PRF_Min_P_val_log, digits = 1)
 PRF_P_val_seq = seq(from = PRF_Min_P_val_log, to = PRF_Max_P_val_log, by = 0.05)
 
-# loop
+# Loop
 for (i in 1:length(PRF_P_val_seq)){
   PRF_current_P_val_log = PRF_P_val_seq[i]
   PRF_current_df = Combined_expression_df[Combined_expression_df$P.Value.log >= PRF_current_P_val_log,]
@@ -2500,7 +2495,7 @@ plot = ggplot(data = Dataset_Step_P_val_2, aes(x = P.Val.10.log, y = Score, col 
   geom_line(aes(linetype = Score_name)) + 
   scale_color_brewer(palette="Set1") +
   scale_x_continuous(n.breaks = 15) +
-  scale_y_continuous(n.breaks = 50, expand = c(0, 0), limits = c(0,3500)) +
+  scale_y_continuous(n.breaks = 50, expand = c(0, 0), limits = c(0,4200)) +
   labs(y = "Signif. proteins count", x = "-log10 p-value", col = "Set", shape = "Set", linetype = "Set") +
   geom_vline(xintercept = -log10(0.05), linetype="dashed", 
              color = "red", size=0.5) +
@@ -2528,9 +2523,11 @@ Dataset_Step_Lf = list()
 # Preparing logFC steps
 PRF_Max_LF = max(abs(Combined_expression_df$logFC))
 PRF_Max_LF = round(PRF_Max_LF, digits = 1)
-PRF_Max_LF_seq = seq(from = 0.1, to = PRF_Max_LF, by = 0.02)
+PRF_Min_LF = min(abs(Combined_expression_df$logFC))
+PRF_Min_LF = round(PRF_Min_LF, digits = 1)
+PRF_Max_LF_seq = seq(from = PRF_Min_LF, to = PRF_Max_LF, by = 0.02)
 
-# loop
+# Loop
 for (i in 1:length(PRF_Max_LF_seq)){
   PRF_current_LF = PRF_Max_LF_seq[i]
   PRF_current_df = Combined_expression_df[abs(Combined_expression_df$logFC) >= PRF_current_LF,]
@@ -2571,7 +2568,7 @@ for (i in 1:length(PRF_Max_LF_seq)){
   PRF_intersect_GSE98793_GSE64930_count_percent_all = round((PRF_intersect_GSE98793_GSE64930_count/PRF_sign_unqiue)*100, digits = 2)
   PRF_intersect_GSE46743_GSE64930_count_percent_all = round((PRF_intersect_GSE46743_GSE64930_count/PRF_sign_unqiue)*100, digits = 2)
   
-  #Percent_intersect
+  # Percent_intersect
   PRF_total_intersect = c(PRF_intersect_all, PRF_intersect_GSE98793_GSE46743, PRF_intersect_GSE98793_GSE64930, PRF_intersect_GSE46743_GSE64930)
   PRF_total_intersect = unique(PRF_total_intersect)
   PRF_total_intersect_count = length(PRF_total_intersect)
@@ -2620,10 +2617,8 @@ plot = ggplot(data = Dataset_Step_Lf_2, aes(x = LF, y = Score, col = Score_name)
   geom_line(aes(linetype = Score_name)) + 
   scale_color_brewer(palette="Set1") +
   scale_x_continuous(n.breaks = 15) +
-  scale_y_continuous(n.breaks = 50, expand = c(0, 0), limits = c(0,3500)) +
+  scale_y_continuous(n.breaks = 50, expand = c(0, 0), limits = c(0,4200)) +
   labs(y = "Signif. proteins count", x = "|Log2 fold change|", col = "Set", shape = "Set", linetype = "Set") +
-  geom_vline(xintercept = 0.1, linetype="dashed", 
-             color = "red", size=0.5) +
   theme(
     plot.title = element_text(face = "bold", hjust = 0.5, size = 17), # Customizing the plot title
     axis.title = element_text(face = "bold", size = 14), # Customizing the axes titles
@@ -2652,7 +2647,7 @@ PRF_Min_P_val_log = min(Combined_expression_df$P.Value.log)
 PRF_Min_P_val_log = round(PRF_Min_P_val_log, digits = 1)
 PRF_P_val_seq = seq(from = PRF_Min_P_val_log, to = PRF_Max_P_val_log, by = 0.05)
 
-# loop
+# Loop
 for (i in 1:length(PRF_P_val_seq)){
   PRF_current_P_val_log = PRF_P_val_seq[i]
   PRF_current_df = Combined_expression_df[Combined_expression_df$P.Value.log >= PRF_current_P_val_log,]
@@ -2675,11 +2670,11 @@ for (i in 1:length(PRF_P_val_seq)){
     PRF_LFs = PRF_current_df[PRF_current_df$Gene == PRF_x, "logFC"]
     PRF_LFs = PRF_LFs[!is.na(PRF_LFs)]
     PRF_probes_greater_0 = which(PRF_LFs > 0)
-    PRF_probes_greater_0 = length(PRF_probes_greater_0)/length(PRF_LFs)
+    PRF_probes_greater_0 = length(PRF_probes_greater_0)
     PRF_probes_smaller_0 = which(PRF_LFs < 0)
-    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)/length(PRF_LFs)
+    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)
     PRF_combined = c(PRF_probes_greater_0, PRF_probes_smaller_0)
-    if (any(PRF_combined == 1)){
+    if (any(PRF_combined >= 2)){
       return(TRUE)
     }
     return(FALSE)
@@ -2695,11 +2690,11 @@ for (i in 1:length(PRF_P_val_seq)){
     PRF_LFs = PRF_curr_small_df[PRF_curr_small_df$Gene == PRF_x, "logFC"]
     PRF_LFs = PRF_LFs[!is.na(PRF_LFs)]
     PRF_probes_greater_0 = which(PRF_LFs > 0)
-    PRF_probes_greater_0 = length(PRF_probes_greater_0)/length(PRF_LFs)
+    PRF_probes_greater_0 = length(PRF_probes_greater_0)
     PRF_probes_smaller_0 = which(PRF_LFs < 0)
-    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)/length(PRF_LFs)
+    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)
     PRF_combined = c(PRF_probes_greater_0, PRF_probes_smaller_0)
-    if (any(PRF_combined == 1)){
+    if (any(PRF_combined >= 2)){
       return(TRUE)
     }
     return(FALSE)
@@ -2716,11 +2711,11 @@ for (i in 1:length(PRF_P_val_seq)){
     PRF_LFs = PRF_curr_small_df[PRF_curr_small_df$Gene == PRF_x, "logFC"]
     PRF_LFs = PRF_LFs[!is.na(PRF_LFs)]
     PRF_probes_greater_0 = which(PRF_LFs > 0)
-    PRF_probes_greater_0 = length(PRF_probes_greater_0)/length(PRF_LFs)
+    PRF_probes_greater_0 = length(PRF_probes_greater_0)
     PRF_probes_smaller_0 = which(PRF_LFs < 0)
-    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)/length(PRF_LFs)
+    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)
     PRF_combined = c(PRF_probes_greater_0, PRF_probes_smaller_0)
-    if (any(PRF_combined == 1)){
+    if (any(PRF_combined >= 2)){
       return(TRUE)
     }
     return(FALSE)
@@ -2737,11 +2732,11 @@ for (i in 1:length(PRF_P_val_seq)){
     PRF_LFs = PRF_curr_small_df[PRF_curr_small_df$Gene == PRF_x, "logFC"]
     PRF_LFs = PRF_LFs[!is.na(PRF_LFs)]
     PRF_probes_greater_0 = which(PRF_LFs > 0)
-    PRF_probes_greater_0 = length(PRF_probes_greater_0)/length(PRF_LFs)
+    PRF_probes_greater_0 = length(PRF_probes_greater_0)
     PRF_probes_smaller_0 = which(PRF_LFs < 0)
-    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)/length(PRF_LFs)
+    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)
     PRF_combined = c(PRF_probes_greater_0, PRF_probes_smaller_0)
-    if (any(PRF_combined == 1)){
+    if (any(PRF_combined >= 2)){
       return(TRUE)
     }
     return(FALSE)
@@ -2812,7 +2807,7 @@ plot = ggplot(data = Dataset_Step_P_val_2, aes(x = P.Val.10.log, y = Score, col 
   geom_line(aes(linetype = Score_name)) +
   scale_color_brewer(palette="Set2") +
   scale_x_continuous(n.breaks = 10, limits = c(NA,4.5)) +
-  scale_y_continuous(n.breaks = 50, limits = c(NA,11), expand = c(0, 0)) +
+  scale_y_continuous(n.breaks = 50, limits = c(NA,19), expand = c(0, 0)) +
   labs(y = "% of overlapping proteins (similar dir.)", x = "-log10 p-value", col = "Overlap type", shape = "Overlap type", linetype = "Overlap type") +
   geom_vline(xintercept = -log10(0.05), linetype="dashed",
              color = "red", size=0.5) +
@@ -2840,9 +2835,11 @@ Dataset_Step_Lf = list()
 # Making steps in logFC
 PRF_Max_LF = max(abs(Combined_expression_df$logFC))
 PRF_Max_LF = round(PRF_Max_LF, digits = 1)
-PRF_Max_LF_seq = seq(from = 0.1, to = PRF_Max_LF, by = 0.02)
+PRF_Min_LF = min(abs(Combined_expression_df$logFC))
+PRF_Min_LF = round(PRF_Min_LF, digits = 1)
+PRF_Max_LF_seq = seq(from = PRF_Min_LF, to = PRF_Max_LF, by = 0.02)
 
-# loop
+# Loop
 for (i in 1:length(PRF_Max_LF_seq)){
   PRF_current_LF = PRF_Max_LF_seq[i]
   PRF_current_df = Combined_expression_df[abs(Combined_expression_df$logFC) >= PRF_current_LF,]
@@ -2866,11 +2863,11 @@ for (i in 1:length(PRF_Max_LF_seq)){
     PRF_LFs = PRF_current_df[PRF_current_df$Gene == PRF_x, "logFC"]
     PRF_LFs = PRF_LFs[!is.na(PRF_LFs)]
     PRF_probes_greater_0 = which(PRF_LFs > 0)
-    PRF_probes_greater_0 = length(PRF_probes_greater_0)/length(PRF_LFs)
+    PRF_probes_greater_0 = length(PRF_probes_greater_0)
     PRF_probes_smaller_0 = which(PRF_LFs < 0)
-    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)/length(PRF_LFs)
+    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)
     PRF_combined = c(PRF_probes_greater_0, PRF_probes_smaller_0)
-    if (any(PRF_combined == 1)){
+    if (any(PRF_combined >= 2)){
       return(TRUE)
     }
     return(FALSE)
@@ -2886,11 +2883,11 @@ for (i in 1:length(PRF_Max_LF_seq)){
     PRF_LFs = PRF_curr_small_df[PRF_curr_small_df$Gene == PRF_x, "logFC"]
     PRF_LFs = PRF_LFs[!is.na(PRF_LFs)]
     PRF_probes_greater_0 = which(PRF_LFs > 0)
-    PRF_probes_greater_0 = length(PRF_probes_greater_0)/length(PRF_LFs)
+    PRF_probes_greater_0 = length(PRF_probes_greater_0)
     PRF_probes_smaller_0 = which(PRF_LFs < 0)
-    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)/length(PRF_LFs)
+    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)
     PRF_combined = c(PRF_probes_greater_0, PRF_probes_smaller_0)
-    if (any(PRF_combined == 1)){
+    if (any(PRF_combined >= 2)){
       return(TRUE)
     }
     return(FALSE)
@@ -2907,11 +2904,11 @@ for (i in 1:length(PRF_Max_LF_seq)){
     PRF_LFs = PRF_curr_small_df[PRF_curr_small_df$Gene == PRF_x, "logFC"]
     PRF_LFs = PRF_LFs[!is.na(PRF_LFs)]
     PRF_probes_greater_0 = which(PRF_LFs > 0)
-    PRF_probes_greater_0 = length(PRF_probes_greater_0)/length(PRF_LFs)
+    PRF_probes_greater_0 = length(PRF_probes_greater_0)
     PRF_probes_smaller_0 = which(PRF_LFs < 0)
-    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)/length(PRF_LFs)
+    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)
     PRF_combined = c(PRF_probes_greater_0, PRF_probes_smaller_0)
-    if (any(PRF_combined == 1)){
+    if (any(PRF_combined >= 2)){
       return(TRUE)
     }
     return(FALSE)
@@ -2928,11 +2925,11 @@ for (i in 1:length(PRF_Max_LF_seq)){
     PRF_LFs = PRF_curr_small_df[PRF_curr_small_df$Gene == PRF_x, "logFC"]
     PRF_LFs = PRF_LFs[!is.na(PRF_LFs)]
     PRF_probes_greater_0 = which(PRF_LFs > 0)
-    PRF_probes_greater_0 = length(PRF_probes_greater_0)/length(PRF_LFs)
+    PRF_probes_greater_0 = length(PRF_probes_greater_0)
     PRF_probes_smaller_0 = which(PRF_LFs < 0)
-    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)/length(PRF_LFs)
+    PRF_probes_smaller_0 = length(PRF_probes_smaller_0)
     PRF_combined = c(PRF_probes_greater_0, PRF_probes_smaller_0)
-    if (any(PRF_combined == 1)){
+    if (any(PRF_combined >= 2)){
       return(TRUE)
     }
     return(FALSE)
@@ -3003,10 +3000,8 @@ plot = ggplot(data = Dataset_Step_Lf_2, aes(x = LF, y = Score, col = Score_name)
   geom_point(aes(shape = Score_name)) +
   geom_line(aes(linetype = Score_name)) + 
   scale_color_brewer(palette="Dark2") +
-  scale_y_continuous(n.breaks = 50, limits = c(NA,11), expand = c(0, 0)) +
+  scale_y_continuous(n.breaks = 50, limits = c(NA,19), expand = c(0, 0)) +
   scale_x_continuous(n.breaks = 10, limits = c(NA,0.5)) +
-  geom_vline(xintercept = 0.1, linetype="dashed",
-             color = "red", size=0.5) +
   labs(y = "% of overlapping genes (similar dir.)", x = "|Log2 fold change|", col = "Overlap type", shape = "Overlap type", linetype = "Overlap type") +
   theme(
     legend.position = c(0.8, 0.2),
@@ -3097,9 +3092,10 @@ Combined_expression_df = lapply(Combined_expression_df, function(x){
   colnames(x) = Colnames_to_select_GSE46743_GSE64930
   return(x)
 })
-Combined_expression_df = do.call(rbind, Combined_expression_df) # 4664 objects in total (not limiting to full intersect, otherwise 3157)
+Combined_expression_df = do.call(rbind, Combined_expression_df) # 6755 objects in total (not limiting to full intersect, otherwise 4837)
+write.csv(Combined_expression_df, "Combined_expression_df_chrom_maps.csv")
 
-# loop
+# Loop
 Chrom_df_Transcriptome_map = list()
 for (i in 1:nrow(Chromosome_map_Rideogram)){
   PRF_curr_chrom = Chromosome_map_Rideogram$Chr[i]
@@ -3147,7 +3143,6 @@ for (i in 1:nrow(Chromosome_map_Rideogram)){
   
   # Running through intervals (inner chromosomal loop)
   for (index in 1:(length(PRF_curr_chrom_vector)-1)){
-    
     if (index == 1){
       
       # The first row
@@ -3240,11 +3235,11 @@ for (i in 1:nrow(Chromosome_map_Rideogram)){
           PRF_LFs = PRF_Cross_signif_df[PRF_Cross_signif_df$Gene == PRF_x, "logFC"]
           PRF_LFs = PRF_LFs[!is.na(PRF_LFs)]
           PRF_probes_greater_0 = which(PRF_LFs > 0)
-          PRF_probes_greater_0 = length(PRF_probes_greater_0)/length(PRF_LFs)
+          PRF_probes_greater_0 = length(PRF_probes_greater_0)
           PRF_probes_smaller_0 = which(PRF_LFs < 0)
-          PRF_probes_smaller_0 = length(PRF_probes_smaller_0)/length(PRF_LFs)
+          PRF_probes_smaller_0 = length(PRF_probes_smaller_0)
           PRF_combined = c(PRF_probes_greater_0, PRF_probes_smaller_0)
-          if (any(PRF_combined == 1)){
+          if (any(PRF_combined >= 2)){
             return(TRUE)
           }
           return(FALSE)
@@ -3303,7 +3298,7 @@ Chrom_df_Transcriptome_map$Signif_genes_cross_valid_Ratio = mapply(function(x,y)
 
 # Checking the data
 table(Chrom_df_Transcriptome_map$PRF_Cross_signif_genes_similar_dir_count)
-sum(Chrom_df_Transcriptome_map$PRF_Cross_signif_genes_similar_dir_count) # 235 genes since this map takes all probes
+sum(Chrom_df_Transcriptome_map$PRF_Cross_signif_genes_similar_dir_count) # 605 genes since this map takes all probes
 Gene_names = Chrom_df_Transcriptome_map$PRF_Cross_signif_genes_similar_dir
 Gene_names = Gene_names[!is.na(Gene_names)]
 Gene_names = Gene_names[Gene_names != ""]
@@ -3311,9 +3306,13 @@ Gene_names = unlist(stri_split_fixed(Gene_names, pattern = ";"))
 # Check
 any(Gene_names == "NA") # No genes == "NA"
 any(duplicated(Gene_names)) # No duplicated...
-Gene_names[Gene_names %!in% Genes_matching_dir] # "HSPA6"  "KCNIP3" "LYPD2"  "RPS17"  "FKBP1A" these genes were detected with matching directions in 2 out of 3 cohorts but were 
-# -> not presented in all 3 cohorts (thus they can't be adequately analyzed in Enrichment analysis)
-Gene_names = Gene_names[Gene_names %in% Expression_Genes_intersect_all] # Now it is 230 genes!
+Gene_names_non_inter = Gene_names[Gene_names %!in% Genes_matching_dir]
+# 26 genes were not presented in all 3 cohorts (thus they can't be adequately analyzed in Enrichment analysis)
+Gene_names = Gene_names[Gene_names %in% Expression_Genes_intersect_all] # Now it is 579 genes!
+Genes_matching_dir[Genes_matching_dir %!in% Gene_names] # "PRRC2A" "LSM2" Genes are not among the ones mapped to chromosomes
+Non_mapped_matching_dir_genes = Ref_annot_expression[Ref_annot_expression$PRF_Gene_symbol %in% c("PRRC2A", "LSM2"),]
+Non_mapped_probes_std_chromes = Ref_annot_expression[stri_detect_fixed(Ref_annot_expression$chrom, pattern = "_"), ]
+
 write.csv(Chrom_df_Transcriptome_map, "Chrom_df_Transcriptome_map.csv")
 write(Genes_matching_dir, "Genes_matching_dir.txt")
 
@@ -3390,8 +3389,8 @@ ENTREZ_matching_dir = ENTREZ_genes_Homo_Sapiens[sapply(ENTREZ_genes_Homo_Sapiens
     return(TRUE)
   }
   return(FALSE)
-}),] # 230 genes
-ENTREZ_matching_dir = ENTREZ_matching_dir[ENTREZ_matching_dir$chromosome != "chr-",] # 230 genes
+}),] # 581 genes
+ENTREZ_matching_dir = ENTREZ_matching_dir[ENTREZ_matching_dir$chromosome != "chr-",] # 581 genes
 write.csv(ENTREZ_matching_dir, "ENTREZ_matching_dir.csv")
 Non_mapped_genes = Genes_matching_dir[Genes_matching_dir %!in% ENTREZ_matching_dir$Symbol] # All genes were mapped
 ENTREZ_matching_dir_ids = unique(ENTREZ_matching_dir$GeneID)
@@ -3543,7 +3542,7 @@ GEO_GSE64930_inter = GEO_GSE64930_inter[,c(
   "description.1"
 )]
 
-# Samples appear not overlapping...
+# Samples appear not overlapping based on the published information on GEO
 
 
 

@@ -1,19 +1,19 @@
 
 ################# This script shows analysis for the GWAS Catalog database ################# 
-# Note 1: The equal sign = was used as an assignment operator as authors don't buy the idea of using <- for typing/productivity reasons
-# Note 2: In many cases loops were deliberately used instead of apply functions to enable better control of the variables (even though loops in R are slow and computationally inefficient)
+# Note 1: The equal sign = was used as an assignment operator for typing/productivity reasons
+# Note 2: In many cases loops were deliberately used instead of apply functions to enable better control of the variables
 # Note 3: Some variables in the loops contain prefixes to enable easy cleanup of the environment once the loop is executed
 # Note 4: To execute the script, several raw files and data from UCSC and NIH should be downloaded 
 
 Working_directory = "~/Desktop/WORK/Broad_Depression_Paper_folder/Depression_omics_multi_cohort/GWAS_Catalog" # Replace with an appropriate path
 setwd(Working_directory)
 
-getOption("scipen") # default number notation is 0
+getOption("scipen") # Default number notation is 0
 options(scipen=999)
 
 
 ################### Package import ###################
-# importing packages that may be nessesary
+# importing packages that may be necessary
 library("fun")
 library("stringr")
 library("dplyr")
@@ -62,7 +62,6 @@ library("clusterProfiler")
 library("DOSE")
 library("enrichplot")
 library("chromoMap")
-library("UniprotR")
 library("RIdeogram")
 
 
@@ -92,7 +91,7 @@ multiple_stri_detector = function(string, pattern_vector){
 }
 
 
-# function to expand a data frame where several columns contain condensed cells with a specified separator
+# A function to expand a data frame where several columns contain condensed cells with a specified separator
 multiple_expander = function(df, cols_to_expand, pattern){
   #
   orig_colnames = colnames(df)
@@ -106,12 +105,12 @@ multiple_expander = function(df, cols_to_expand, pattern){
     print(i)
     curr_df_const = df_const[i,, drop = FALSE]
     curr_df_modif = df_modif[i,, drop = FALSE]
-    curr_df_modif = apply(curr_df_modif, 2, function(x) unlist(stri_split_fixed(x, pattern = pattern)))
+    curr_df_modif = apply(curr_df_modif, 2, function(x) unlist(stri_split_fixed(x, pattern = pattern)), simplify = FALSE)
     
     if (length(cols_to_expand) > 1){
       curr_df_modif = do.call(cbind, curr_df_modif)
     } else {
-      curr_df_modif = as.character(curr_df_modif)
+      curr_df_modif = unlist(curr_df_modif)
     }
     
     if (is.matrix(curr_df_modif)){
@@ -142,9 +141,9 @@ multiple_expander = function(df, cols_to_expand, pattern){
   return(df_list)
 }
 
-# function to map SNPs to dbSNP153. It uses bigBedNamedItems from UCSC Genome Browser. The function was not tested on Windows-based OS
+# Function to map SNPs to dbSNP153. It uses bigBedNamedItems from UCSC Genome Browser. The function was not tested on Windows-based OS
 # bigBedNamedItems has to be downloaded and activated on a computer
-# paths specified in the function should be replaced with appropriate paths for the current computer
+# Paths specified in the function should be replaced with appropriate paths for the current computer
 lin_req_SNP_db_153 = function(SNPs, File_name, lag_param){
   writeLines(text = SNPs, con = "/home/aleksandr/Desktop/WORK/SNP_CHECK/myIds.txt")
   Info_string = "If the first use, please type the following:\nchmod +x /home/aleksandr/UCSC_folder/bigBedNamedItems\n\n"
@@ -162,7 +161,7 @@ lin_req_SNP_db_153 = function(SNPs, File_name, lag_param){
   return(Data)
 }
 
-# function to get coordinate table for human chromosomes (hg19 genome build)
+# Function to get coordinate table for human chromosomes (hg19 genome build)
 chromosome_table_getter = function(){
   URL = "https://www.ncbi.nlm.nih.gov/grc/human/data?asm=GRCh37"
   HTML = read_html(URL)
@@ -174,8 +173,8 @@ chromosome_table_getter = function(){
   return(Tables)
 }
 
-# this function add mapped genes to UCSC SNP153 track
-# mapping is performed directly by gene coordinates obtained from UCSC tracks 
+# This function add mapped genes to UCSC SNP153 track
+# Mapping is performed directly by gene coordinates obtained from UCSC tracks 
 gene_mapper = function(SNP_153_Track, gene_track){
   
   SNP_153_Track$Mapped_transcript = NA
@@ -209,10 +208,10 @@ gene_mapper = function(SNP_153_Track, gene_track){
   return(SNP_153_Track)
 }
 
-# function to perform enrichment for GO terms and KEGG and create figures that may be useful
-# all results are saved in the specified folder
-# genes and universe are accepted as vectors of Entrez IDs
-# some of the ploting is performed within tryCatch since these plots may not be rendered depending on the enrichment results
+# Function to perform enrichment for GO terms and KEGG and create figures that may be useful
+# All results are saved in the specified folder
+# Genes and universe are accepted as vectors of Entrez IDs
+# Some of the plotying is performed within tryCatch since these plots may not be rendered depending on the enrichment results
 run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show = 30, folder, plot_name_pref){
   
   # genes should be submitted as Entrez IDs
@@ -441,7 +440,7 @@ run_enrichment_GO_KEGG_gene_set = function(genes, universe, categories_to_show =
     }
   }
   
-  # preparing outputs to load into the environment
+  # Preparing outputs to load into the environment
   GO_Enrichment[[4]] = KEGG_Enrichment
   
   if (is.null(KEGG_Enrichment)){
@@ -634,7 +633,7 @@ colnames(GWAS_CAT_Depress_specific_SNPs_count) = c("SNP", "Count")
 write.xlsx(GWAS_CAT_Depress_specific_SNPs_count, "GWAS_CAT_Depress_specific_SNPs_count.xlsx")
 GWAS_CAT_Depress_specific_SNPs_unique = unique(GWAS_CAT_Depress_specific_SNPs) #2073 SNPs
 
-# mapping to dbSNP153
+# Mapping to dbSNP153
 GWAS_CAT_Depress_specific_SNPs_153_track = lin_req_SNP_db_153(SNPs = GWAS_CAT_Depress_specific_SNPs_unique, File_name = "GWAS_CAT_Depress_specific_SNPs_unique.txt", lag_param = 10)
 GWAS_CAT_Depress_specific_SNPs_153_track = GWAS_CAT_Depress_specific_SNPs_153_track[GWAS_CAT_Depress_specific_SNPs_153_track$name %in% GWAS_CAT_Depress_specific_SNPs_unique,]
 GWAS_CAT_Depress_specific_SNPs_153_track = GWAS_CAT_Depress_specific_SNPs_153_track[!stri_detect_fixed(GWAS_CAT_Depress_specific_SNPs_153_track$chrom, pattern = "_")]
@@ -674,7 +673,7 @@ UCSC_known_gene_track = do.call(rbind, UCSC_known_gene_track)
 rm(list = ls()[stri_detect_fixed(ls(), pattern = "PRF_")]) # removes all variables with prefix
 
 
-# complete wgEncodeGencodeCompV38lift37
+# Complete wgEncodeGencodeCompV38lift37
 wgEncodeGencodeCompV38lift37_gene_track = list()
 wgEncodeGencodePseudoGeneV38lift37_gene_track = list()
 wgEncodeGencodeV38lift37_combined_gene_track = list()
@@ -723,7 +722,7 @@ rm(list = ls()[stri_detect_fixed(ls(), pattern = "PRF_")]) # removes all variabl
 ncbiRefSeq_tracks_full = do.call(rbind, ncbiRefSeq_tracks_full)
 
 
-# mapping may be slow since loops in R are slow to execute
+# Mapping may be slow since loops in R are slow to execute
 GWAS_CAT_Depress_specific_SNPs_153_mapped = gene_mapper(SNP_153_Track = GWAS_CAT_Depress_specific_SNPs_153_track, 
                                                         gene_track = wgEncodeGencodeV38lift37_combined_gene_track)
 GWAS_CAT_Depress_specific_SNPs_153_mapped_UCSC = gene_mapper(SNP_153_Track = GWAS_CAT_Depress_specific_SNPs_153_track, 
@@ -733,7 +732,7 @@ GWAS_CAT_Depress_specific_SNPs_153_mapped_refSeq = gene_mapper(SNP_153_Track = G
 GWAS_CAT_Depress_specific_SNPs_153_mapped$Mapped_gene_UCSC =  GWAS_CAT_Depress_specific_SNPs_153_mapped_UCSC$Mapped_gene
 GWAS_CAT_Depress_specific_SNPs_153_mapped$Mapped_gene_refSeq = GWAS_CAT_Depress_specific_SNPs_153_mapped_refSeq$Mapped_gene
 
-# aggregate information from 3 mappings
+# Aggregate information from 3 mappings
 GWAS_CAT_Depress_specific_SNPs_153_mapped$Mapped_gene_fixed = mapply(function(x,y,z){
   Combined_vector = c(x, y, z)
   Combined_vector = Combined_vector[!is.na(Combined_vector)]
@@ -748,7 +747,7 @@ GWAS_CAT_Depress_specific_SNPs_153_mapped$Mapped_gene_fixed = mapply(function(x,
 GWAS_CAT_Depress_specific_SNPs_153_mapped$Mapped_gene_UCSC, 
 GWAS_CAT_Depress_specific_SNPs_153_mapped$Mapped_gene_refSeq)
 
-# remove duplicates
+# Remove duplicates
 GWAS_CAT_Depress_specific_SNPs_153_mapped$Mapped_gene_fixed = sapply(GWAS_CAT_Depress_specific_SNPs_153_mapped$Mapped_gene_fixed, function(x){
   genes = unlist(stri_split_fixed(x, pattern = ";"))
   genes = unique(genes)
@@ -758,7 +757,7 @@ GWAS_CAT_Depress_specific_SNPs_153_mapped$Mapped_gene_fixed = sapply(GWAS_CAT_De
   return(genes)
 })
 
-# classify SNPs as Intergenic and Intragenic
+# Classify SNPs as Intergenic and Intragenic
 GWAS_CAT_Depress_specific_SNPs_153_mapped$Intragenic = sapply(GWAS_CAT_Depress_specific_SNPs_153_mapped$Mapped_gene_fixed, function(x){
   if(is.na(x)){
     return("Intergenic")
@@ -820,7 +819,7 @@ for (i in 1:length(Chromosome_order)){
   PRF_Curr_Stat = arrange(PRF_Curr_Stat, -Count)
   Top_genes_per_chromosome[[i]] = PRF_Curr_Stat
   
-  # selecting top 5
+  # Selecting top 5
   PRF_Curr_Stat_5 = PRF_Curr_Stat[1:5,]
   PRF_Curr_Stat_5 = PRF_Curr_Stat_5[!is.na(PRF_Curr_Stat_5$Chrom),]
   Top_genes_per_chromosome_top5[[i]] = PRF_Curr_Stat_5
@@ -900,7 +899,7 @@ Non_mapped_genes = GWAS_CAT_Depress_specific_SNPs_153_mapped__genes[GWAS_CAT_Dep
 # 249 genes are not mapped
 write(Non_mapped_genes, "Non_mapped_genes_GWAS.txt")
 
-# mapping through synonyms
+# Mapping through synonyms
 ENTREZ_Genes_GWAS_idx = vector()
 for (i in 1:nrow(ENTREZ_genes_Homo_Sapiens)){
   print(i)
@@ -1179,7 +1178,7 @@ for (i in 1:nrow(Chromosome_map_Rideogram)){
       PRF_SNP_Count_unique = length(PRF_identified_SNP)
       PRF_identified_SNP = paste0(PRF_identified_SNP, collapse = ";")
       
-      # identifying genes
+      # Identifying genes
       PRF_identified_Genes = PRF_Curr_SNP_df_interval$Mapped_gene_fixed
       PRF_identified_Genes = PRF_identified_Genes[!is.na(PRF_identified_Genes)]
       PRF_identified_Genes = unlist(stri_split_fixed(PRF_identified_Genes, pattern = ";"))
