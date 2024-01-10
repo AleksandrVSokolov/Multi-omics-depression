@@ -16,7 +16,6 @@ options(scipen=999)
 options(stringsAsFactors = FALSE)
 
 ################### Package import ###################
-# Importing packages (Note: Not all of them may be required)
 library(fun)
 library(stringr)
 library(dplyr)
